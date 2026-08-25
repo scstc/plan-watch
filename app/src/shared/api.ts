@@ -1,11 +1,13 @@
 import { invoke } from "@tauri-apps/api/core";
+import * as pwcrypto from "./crypto";
 import type { Account, AccountStatus, AppConfig } from "./types";
 
 /**
  * 数据源适配层：
  * - 本地模式（默认）：走 Tauri IPC（桌面端自己查询）
  * - 服务端模式：配置了后端接口地址后，全部数据走 HTTP（Spring Boot 服务端，
- *   接口与 Tauri commands 同构，见 server/）
+ *   接口与 Tauri commands 同构，见 server/）。请求经 crypto.ts 端到端加密
+ *   （X-PW-Key + AES-GCM 信封，协议见 server CryptoService / README）。
  * 地址存在 localStorage（设备本地偏好，不随配置同步）。
  */
 const SERVER_URL_KEY = "pw-server-url";
@@ -29,16 +31,34 @@ export function isServerMode(): boolean {
 
 const inTauri = typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
 
+/**
+ * 服务端模式的唯一 HTTP 出口：透明加解密（公钥获取在 http 之外，避免递归）。
+ * - 请求：一次性 AES 密钥经服务端公钥包裹放 X-PW-Key，body 加密为信封
+ * - 响应：信封解密；非信封按明文透传（服务端 required=false 兼容模式 / 网关错误页）
+ * - 公钥轮换自愈：服务端换密钥后首次请求必报 PW_KEY_UNWRAP_FAILED，重取公钥重试一次
+ */
 async function http<T>(path: string, init?: RequestInit): Promise<T> {
-  const resp = await fetch(getServerUrl() + path, {
-    headers: { "Content-Type": "application/json" },
-    ...init,
-  });
-  if (!resp.ok) {
-    const body = await resp.text().catch(() => "");
-    throw new Error(`HTTP ${resp.status}${body ? `: ${body.slice(0, 200)}` : ""}`);
+  const serverUrl = getServerUrl();
+  let pub = (await pwcrypto.getServerKey(serverUrl)).key;
+  for (let attempt = 0; ; attempt++) {
+    const enc = await pwcrypto.buildEncryptedRequest(pub, init?.body as string | undefined);
+    const resp = await fetch(serverUrl + path, {
+      ...init,
+      body: enc.body,
+      headers: { "Content-Type": "application/json", ...enc.headers },
+    });
+    const text = await resp.text().catch(() => "");
+    const plain = (await pwcrypto.openEnvelope(enc.aes, text)) ?? text;
+    if (!resp.ok) {
+      if (plain.includes("PW_KEY_UNWRAP_FAILED") && attempt === 0) {
+        pwcrypto.clearServerKeyCache();
+        pub = (await pwcrypto.getServerKey(serverUrl, true)).key;
+        continue;
+      }
+      throw new Error(`HTTP ${resp.status}${plain ? `: ${plain.slice(0, 200)}` : ""}`);
+    }
+    return JSON.parse(plain) as T;
   }
-  return (await resp.json()) as T;
 }
 
 export async function getConfig(): Promise<AppConfig> {

@@ -11,3 +11,8 @@ spring:
 planwatch:
   # 配置与数据目录（config.json 所在）；可用环境变量 PLANWATCH_DATADIR 或启动参数覆盖
   data-dir: ./data
+  crypto:
+    # 接口加密：true（默认）拒绝未加密的 /api 请求；false 兼容明文客户端（curl 直调/旧版 app）
+    required: true
+    # 密钥文件路径，留空则用 {data-dir}/server.key（首次启动自动生成 RSA-2048）
+    key-file:

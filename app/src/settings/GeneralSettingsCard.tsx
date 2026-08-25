@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import * as api from "../shared/api";
+import { cachedFingerprint } from "../shared/crypto";
 import type { AppConfig } from "../shared/types";
 
 /** 数字输入就地钳制（空输入 Number("")=0 也会被拉回下限） */
@@ -19,11 +20,14 @@ export function GeneralSettingsCard({ config, persist, onSaved }: Props) {
   const [intervalMin, setIntervalMin] = useState(5);
   const [threshold, setThreshold] = useState(80);
   const [serverUrl, setServerUrlDraft] = useState(api.getServerUrl());
+  // 已缓存的服务端公钥指纹（TOFU 校对入口，与服务端启动日志核对）
+  const [keyFp, setKeyFp] = useState<string | null>(cachedFingerprint());
 
   const clearServerConfig = () => {
     if (confirm("确定要清除后端配置吗？这将切换回本地查询模式。")) {
       api.setServerUrl("");
       setServerUrlDraft("");
+      setKeyFp(null);
     }
   };
 
@@ -54,6 +58,7 @@ export function GeneralSettingsCard({ config, persist, onSaved }: Props) {
       refreshIntervalSecs: Math.max(60, Math.min(86_400, Math.round(intervalMin * 60))),
       lowQuotaThreshold: Math.max(10, Math.min(99, Math.round(threshold))),
     });
+    setKeyFp(cachedFingerprint());
     onSaved();
   };
 
@@ -97,6 +102,11 @@ export function GeneralSettingsCard({ config, persist, onSaved }: Props) {
             spellCheck={false}
           />
         </label>
+        {serverUrl && keyFp && (
+          <p className="muted span-3">
+            已缓存服务端公钥指纹：{keyFp.slice(0, 16)}…（传输已加密；可与服务端启动日志核对）
+          </p>
+        )}
         <div className="form-actions inline span-3">
           {serverUrl && (
             <button className="secondary" onClick={clearServerConfig}>

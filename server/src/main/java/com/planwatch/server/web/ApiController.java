@@ -7,7 +7,6 @@ import com.planwatch.server.service.ConfigStore;
 import com.planwatch.server.service.QuotaQueryService;
 import com.planwatch.server.service.RefreshService;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
@@ -20,10 +19,10 @@ import java.util.List;
 /**
  * REST API —— 与桌面端 Tauri commands（get_config / save_config / get_statuses /
  * refresh_now / test_account）一一同构，前端按同一套 TS 类型渲染。
+ * 加解密由 CryptoFilter 统一处理，控制器只见到明文（CORS 见 CorsConfig）。
  */
 @RestController
 @RequestMapping("/api")
-@CrossOrigin(origins = "*")
 public class ApiController {
 
     private final ConfigStore configStore;
