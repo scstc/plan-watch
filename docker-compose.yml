@@ -1,0 +1,32 @@
+version: '3.8'
+
+services:
+  plan-watch-server:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    container_name: plan-watch-server
+    ports:
+      - "8080:8080"
+    volumes:
+      # Mount data directory to persist config.json
+      - ./server/data:/app/data
+    environment:
+      # Spring Boot configuration
+      - SPRING_PROFILES_ACTIVE=prod
+      - SERVER_PORT=8080
+      # Timezone
+      - TZ=Asia/Shanghai
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/actuator/health"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 40s
+    networks:
+      - plan-watch-network
+
+networks:
+  plan-watch-network:
+    driver: bridge

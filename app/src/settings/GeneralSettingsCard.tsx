@@ -20,6 +20,13 @@ export function GeneralSettingsCard({ config, persist, onSaved }: Props) {
   const [threshold, setThreshold] = useState(80);
   const [serverUrl, setServerUrlDraft] = useState(api.getServerUrl());
 
+  const clearServerConfig = () => {
+    if (confirm("确定要清除后端配置吗？这将切换回本地查询模式。")) {
+      api.setServerUrl("");
+      setServerUrlDraft("");
+    }
+  };
+
   // config 变化时同步草稿（初始加载 / 服务端返回规范化值 / 回滚）
   useEffect(() => {
     setIntervalMin(Math.max(1, Math.round(config.refreshIntervalSecs / 60)));
@@ -90,6 +97,13 @@ export function GeneralSettingsCard({ config, persist, onSaved }: Props) {
             spellCheck={false}
           />
         </label>
+        <div className="form-actions inline span-3">
+          {serverUrl && (
+            <button className="secondary" onClick={clearServerConfig}>
+              清除后端配置
+            </button>
+          )}
+        </div>
       </div>
     </section>
   );

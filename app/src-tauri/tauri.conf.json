@@ -1,7 +1,7 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "plan-watch",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "identifier": "com.planwatch.app",
   "build": {
     "frontendDist": "../dist",
@@ -13,8 +13,13 @@
     "macOSPrivateApi": true,
     "windows": [],
     "security": {
-      "csp": "default-src 'self'; connect-src 'self' ipc: http://ipc.localhost; img-src 'self' data:; style-src 'self' 'unsafe-inline'"
-    }
+      "csp": "default-src 'self'; connect-src 'self' ipc: http://ipc.localhost http://* https://* ws://* wss://*; img-src 'self' data:; style-src 'self' 'unsafe-inline'",
+      "assetProtocol": {
+        "enable": true,
+        "scope": ["**"]
+      }
+    },
+    "withGlobalTauri": true
   },
   "bundle": {
     "active": true,

@@ -10,10 +10,9 @@ import { ERROR_KIND_LABEL, fmtCountdown, fmtPercent, fmtReset } from "../shared/
 const PLACED_KEY = "pw-float-placed";
 /** 点击 vs 拖动的位移阈值（px） */
 const DRAG_THRESHOLD = 4;
-/** 窗口宽度与高度上下限（logical px，高度随账号数自适应） */
-const WIDTH = 236;
+/** 窗口宽度（logical px，固定）；高度完全由供应商数量决定 */
+const WIDTH = 280;
 const MIN_HEIGHT = 96;
-const MAX_HEIGHT = 420;
 
 type DotState = "ok" | "warn" | "crit" | "idle" | "err";
 
@@ -103,12 +102,26 @@ export default function FloatList() {
   const { config, statuses, error } = useQuotas();
   const rootRef = useRef<HTMLDivElement>(null);
 
-  // 高度随内容自适应（宽度固定），并把窗口尺寸同步给 OS
+  // 高度随内容自适应（宽度固定）：由供应商数量决定，仅以屏幕高度为物理上限
   useEffect(() => {
     const el = rootRef.current;
     if (!el) return;
-    const h = Math.max(MIN_HEIGHT, Math.min(MAX_HEIGHT, el.scrollHeight));
-    void getCurrentWindow().setSize(new LogicalSize(WIDTH, h));
+    (async () => {
+      // 内容实际高度 = 头部 + 各账号状态条 + 底部，完全由供应商数量决定
+      const contentH = el.scrollHeight;
+      // 唯一限制：不能超出屏幕高度（物理限制），留 40px 边距
+      let screenLimit = Infinity;
+      try {
+        const mon = await currentMonitor();
+        if (mon) {
+          screenLimit = Math.round(mon.size.height / mon.scaleFactor) - 40;
+        }
+      } catch {
+        // 取不到显示器信息就不限制
+      }
+      const h = Math.max(MIN_HEIGHT, Math.min(contentH, screenLimit));
+      await getCurrentWindow().setSize(new LogicalSize(WIDTH, h));
+    })();
     // 首次运行放到当前显示器右下角（要在尺寸确定后再算位置）
     if (!localStorage.getItem(PLACED_KEY)) {
       (async () => {
@@ -189,10 +202,6 @@ export default function FloatList() {
         </button>
         <button title="设置" onClick={() => void api.openSettings()}>
           ⚙
-        </button>
-        <span className="spacer" />
-        <button className="fl-quit" title="退出 plan-watch" onClick={() => void api.quitApp()}>
-          ⏻
         </button>
       </div>
     </div>

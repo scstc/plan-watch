@@ -22,11 +22,36 @@ export default function SettingsApp() {
 
     const loadAll = async () => {
       try {
-        const [cfg, sts] = await Promise.all([api.getConfig(), api.getStatuses()]);
+        // 先尝试获取配置
+        let cfg: AppConfig;
+        try {
+          cfg = await api.getConfig();
+        } catch (configError) {
+          // 如果是服务端模式配置错误，自动切换回本地模式
+          if (api.isServerMode()) {
+            console.warn("后端连接失败，切换到本地模式:", configError);
+            api.setServerUrl(""); // 清除错误的配置
+            cfg = await api.getConfig(); // 使用本地命令
+          } else {
+            throw configError;
+          }
+        }
+
         if (!alive) return;
-        setConfig(cfg);
-        setStatuses(byId(sts));
-        setLoadError(null);
+
+        // 然后尝试获取状态（这个可以失败，不影响基本功能）
+        try {
+          const sts = await api.getStatuses();
+          if (alive) setStatuses(byId(sts));
+        } catch (statusError) {
+          console.warn("获取状态失败（可以忽略）:", statusError);
+          // 状态获取失败不影响配置显示
+        }
+
+        if (alive) {
+          setConfig(cfg);
+          setLoadError(null);
+        }
       } catch (e) {
         if (alive) setLoadError(String(e));
       }
@@ -35,7 +60,7 @@ export default function SettingsApp() {
     // 轮询兜底（服务端模式的主通道）
     const timer = setInterval(() => {
       if (alive) void loadAll();
-    }, 15_000);
+    }, 30_000); // 增加轮询间隔，避免频繁失败
 
     void listen<AccountStatus[]>(EVENT_STATUS, (ev) => {
       if (alive && !api.isServerMode()) setStatuses(byId(ev.payload));
@@ -106,7 +131,41 @@ export default function SettingsApp() {
   );
 
   if (loadError && !config) {
-    return <div className="app">加载失败：{loadError}</div>;
+    const isServerError = loadError.includes("Failed to fetch") || loadError.includes("net::ERR");
+    return (
+      <div className="app">
+        <div className="card">
+          <div className="card-head">
+            <h2>⚠️ 加载失败</h2>
+          </div>
+          <div style={{ padding: "2rem" }}>
+            <p className="error-banner">{loadError}</p>
+            {isServerError && (
+              <>
+                <p className="muted">
+                  后端服务器连接失败，请尝试以下操作：
+                </p>
+                <ol style={{ marginLeft: "1.5rem", marginTop: "1rem" }}>
+                  <li>检查后端地址是否正确</li>
+                  <li>确认后端服务是否正在运行</li>
+                  <li>点击下方"清除后端配置"切换到本地模式</li>
+                </ol>
+                <button
+                  className="primary"
+                  onClick={() => {
+                    api.setServerUrl("");
+                    window.location.reload();
+                  }}
+                  style={{ marginTop: "1rem" }}
+                >
+                  清除后端配置并重试
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+      </div>
+    );
   }
   if (!config) {
     return <div className="app">加载中…</div>;

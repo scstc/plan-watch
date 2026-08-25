@@ -13,7 +13,7 @@
 
   <groupId>com.planwatch</groupId>
   <artifactId>plan-watch-server</artifactId>
-  <version>0.4.0</version>
+  <version>0.5.0</version>
   <name>plan-watch-server</name>
   <description>plan-watch backend: coding-plan quota API (same contract as the Tauri commands)</description>
 

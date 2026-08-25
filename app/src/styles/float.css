@@ -9,7 +9,7 @@ body:has(.float-list) {
   display: flex;
   flex-direction: column;
   min-height: 96px;
-  max-height: 420px;
+  /* 高度完全由内容决定，无 max-height 限制 */
   background: var(--card);
   border: 1px solid var(--border);
   border-radius: 10px;
@@ -21,7 +21,7 @@ body:has(.float-list) {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 5px 6px 5px 12px;
+  padding: 4px 8px;
   border-bottom: 1px solid var(--border);
   cursor: move;
   user-select: none;
@@ -52,13 +52,20 @@ body:has(.float-list) {
   display: flex;
   flex-direction: column;
   gap: 2px;
+  /* 隐藏滚动条，内容仍可滚动 */
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE/Edge */
+}
+
+.fl-body::-webkit-scrollbar {
+  display: none; /* Chrome/Safari/WebView2 */
 }
 
 /* 一组：名称行 + 状态条 */
 
 .fl-account {
-  padding: 5px 8px 6px;
-  border-radius: 8px;
+  padding: 4px 8px 5px;
+  border-radius: 6px;
   cursor: pointer;
 }
 
@@ -134,10 +141,10 @@ body:has(.float-list) {
 
 .fl-bar-row {
   display: grid;
-  grid-template-columns: 16px 1fr 32px 36px;
+  grid-template-columns: 18px 1fr 30px 34px;
   align-items: center;
-  gap: 6px;
-  margin-top: 4px;
+  gap: 4px;
+  margin-top: 3px;
 }
 
 .fl-bar-label {
@@ -196,23 +203,26 @@ body:has(.float-list) {
 .fl-foot {
   display: flex;
   align-items: center;
-  gap: 4px;
-  padding: 3px 6px;
+  justify-content: space-between;
+  padding: 4px 8px;
   border-top: 1px solid var(--border);
 }
 
 .fl-foot button {
   border: none;
   background: transparent;
-  padding: 3px 8px;
-  font-size: 13px;
+  padding: 4px 8px;
+  font-size: 14px;
   line-height: 1;
   color: var(--muted);
+  cursor: pointer;
+  border-radius: 4px;
+  transition: all 0.2s;
 }
 
 .fl-foot button:hover {
   color: var(--accent);
-  border: none;
+  background: var(--bg);
 }
 
 .fl-quit:hover {
