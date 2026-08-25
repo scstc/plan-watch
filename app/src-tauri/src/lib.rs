@@ -60,9 +60,10 @@ pub fn run() {
                 .build(),
         )
         .setup(|app| {
-            // macOS：菜单栏常驻形态（不占 Dock / Cmd+Tab）；Windows 不受影响
+            // macOS：菜单栏常驻形态（不占 Dock / Cmd+Tab）；Windows 不受影响。
+            // 注意此 API 在 macOS 返回 ()，不要加 `?`
             #[cfg(target_os = "macos")]
-            app.set_activation_policy(tauri::ActivationPolicy::Accessory)?;
+            app.set_activation_policy(tauri::ActivationPolicy::Accessory);
 
             let config_dir = app.path().app_config_dir()?;
             let config = AppConfig::load(&config_dir);
