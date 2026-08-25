@@ -1,0 +1,70 @@
+# 打 tag（v*）触发：三平台桌面安装包 + 服务端 jar，全部挂到 GitHub Draft Release
+# 产物未签名/未公证（个人项目够用；要分发给别人再补签名与 updater）
+# 本地触发：git tag v0.4.0 && git push origin v0.4.0
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  desktop:
+    name: 桌面端 · ${{ matrix.settings.label }}
+    strategy:
+      fail-fast: false
+      matrix:
+        settings:
+          # 每个 runner 构建本机架构：windows=x64，macos-latest=Apple Silicon，macos-13=Intel
+          - label: Windows x64
+            os: windows-latest
+          - label: macOS Apple Silicon
+            os: macos-latest
+          - label: macOS Intel
+            os: macos-13
+    runs-on: ${{ matrix.settings.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: app/src-tauri
+      - run: npm install
+        working-directory: app
+      - uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          projectPath: app
+          tagName: ${{ github.ref_name }}
+          releaseName: plan-watch ${{ github.ref_name }}
+          releaseDraft: true
+          prerelease: false
+          releaseBody: |
+            桌面安装包（未签名，首次打开见 README 的平台说明）与服务端 jar。
+            悬浮列表 + 托盘监控 AI 编程套餐余额，详见 README。
+
+  server:
+    name: 服务端 jar
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 26
+          cache: maven
+      - run: mvn -B package --file server/pom.xml
+      # 挂到 tauri-action 创建的同一 tag 的（草稿）Release 上
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          draft: true
+          files: server/target/plan-watch-server.jar

@@ -1,6 +1,6 @@
 [package]
 name = "plan-watch"
-version = "0.3.0"
+version = "0.4.0"
 description = "AI coding-plan quota in your tray"
 authors = ["Simple"]
 license = "MIT"
@@ -38,3 +38,5 @@ codegen-units = 1
 lto = "thin"
 opt-level = "s"
 strip = "symbols"
+
+
