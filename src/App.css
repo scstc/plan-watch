@@ -1,0 +1,418 @@
+:root {
+  --bg: #f6f8fa;
+  --card: #ffffff;
+  --text: #1f2328;
+  --muted: #656d76;
+  --border: #d8dee4;
+  --accent: #0969da;
+  --accent-text: #ffffff;
+  --ok: #2da44e;
+  --warn: #bf8700;
+  --crit: #cf222e;
+  --danger: #cf222e;
+  --banner-ok-bg: #dafbe1;
+  --banner-ok-text: #116329;
+  --banner-err-bg: #ffebe9;
+  --banner-err-text: #82071e;
+  --banner-warn-bg: #fff8c5;
+  color-scheme: light dark;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0d1117;
+    --card: #161b22;
+    --text: #e6edf3;
+    --muted: #8b949e;
+    --border: #30363d;
+    --accent: #388bfd;
+    --ok: #3fb950;
+    --warn: #d29922;
+    --crit: #f85149;
+    --danger: #f85149;
+    --banner-ok-bg: #143d2b;
+    --banner-ok-text: #4dffb8;
+    --banner-err-bg: #3d1d20;
+    --banner-err-text: #ff9492;
+    --banner-warn-bg: #3a2e00;
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: -apple-system, "Segoe UI", "Microsoft YaHei", "PingFang SC", sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.app {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 20px 24px 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+header h1 {
+  margin: 0;
+  font-size: 20px;
+}
+
+header p {
+  margin: 2px 0 0;
+}
+
+.card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.card-head h2 {
+  margin: 0;
+  font-size: 15px;
+}
+
+h3 {
+  margin: 0 0 4px;
+  font-size: 14px;
+}
+
+.muted {
+  color: var(--muted);
+}
+
+.small {
+  font-size: 12px;
+}
+
+.empty {
+  margin: 4px 0;
+}
+
+/* ── 表单 ── */
+
+.form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 12px;
+  align-items: end;
+}
+
+.form-grid .span-2 {
+  grid-column: span 2;
+}
+
+label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+input,
+select {
+  font: inherit;
+  color: var(--text);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 6px 8px;
+  min-width: 0;
+}
+
+input:focus,
+select:focus {
+  outline: 2px solid var(--accent);
+  outline-offset: -1px;
+}
+
+.key-row {
+  display: flex;
+  gap: 6px;
+}
+
+.key-row input {
+  flex: 1;
+}
+
+/* ── 按钮 ── */
+
+button {
+  font: inherit;
+  color: var(--text);
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 5px 12px;
+  cursor: pointer;
+}
+
+button:hover:not(:disabled) {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+button.primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-text);
+}
+
+button.primary:hover:not(:disabled) {
+  filter: brightness(1.08);
+  color: var(--accent-text);
+}
+
+button.ghost {
+  background: transparent;
+}
+
+button.danger {
+  color: var(--danger);
+}
+
+button.danger.solid {
+  background: var(--danger);
+  border-color: var(--danger);
+  color: #fff;
+}
+
+button.toggle {
+  padding: 5px 8px;
+}
+
+.spacer {
+  flex: 1;
+}
+
+/* ── 账号卡片 ── */
+
+.account-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.account-card {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.account-card.disabled {
+  opacity: 0.6;
+}
+
+.account-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.account-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+
+.account-name {
+  font-weight: 600;
+}
+
+.badge {
+  font-size: 11px;
+  padding: 1px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--accent);
+  color: var(--accent);
+  white-space: nowrap;
+}
+
+.badge.subtle {
+  border-color: var(--border);
+  color: var(--muted);
+}
+
+.account-actions {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.account-key {
+  font-family: ui-monospace, Consolas, monospace;
+  font-size: 12px;
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.account-body {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+/* ── 额度条 ── */
+
+.tiers {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.tier {
+  display: grid;
+  grid-template-columns: 48px 1fr 44px 110px 110px;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+}
+
+.tier-name {
+  color: var(--muted);
+}
+
+.tier-bar {
+  height: 8px;
+  border-radius: 999px;
+  background: var(--border);
+  overflow: hidden;
+}
+
+.tier-bar > div {
+  height: 100%;
+  border-radius: 999px;
+  transition: width 0.3s ease;
+}
+
+.tier-bar > .ok {
+  background: var(--ok);
+}
+
+.tier-bar > .warn {
+  background: var(--warn);
+}
+
+.tier-bar > .crit {
+  background: var(--crit);
+}
+
+.tier-pct {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.tier-reset {
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.tier-abs {
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+/* ── 横幅 ── */
+
+.error-banner {
+  margin: 0;
+  padding: 6px 10px;
+  border-radius: 6px;
+  background: var(--banner-err-bg);
+  color: var(--banner-err-text);
+  overflow-wrap: anywhere;
+}
+
+.error-banner.auth {
+  border-left: 3px solid var(--crit);
+}
+
+.ok-banner {
+  margin: 0;
+  padding: 6px 10px;
+  border-radius: 6px;
+  background: var(--banner-ok-bg);
+  color: var(--banner-ok-text);
+}
+
+.stale-banner {
+  margin: 0;
+  padding: 4px 10px;
+  border-radius: 6px;
+  background: var(--banner-warn-bg);
+  color: var(--warn);
+  font-size: 12px;
+}
+
+/* ── 账号表单 ── */
+
+.account-form {
+  border: 1px dashed var(--accent);
+  border-radius: 8px;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.account-form .form-grid {
+  grid-template-columns: 2fr 1fr 1fr;
+}
+
+.form-result p {
+  margin: 0;
+}
+
+.form-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.form-actions.inline {
+  padding-bottom: 1px;
+}
+
+footer {
+  text-align: center;
+}

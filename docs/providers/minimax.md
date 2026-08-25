@@ -86,3 +86,6 @@ curl -s -H "Authorization: Bearer <API_KEY>" \
 2. 无周限额套餐的 `current_weekly_remaining_percent` 恒为 100，绝不能当成"周额度还剩 100%"展示，必须靠 `current_weekly_status == 1` 过滤
 3. 百分比是数值型（非字符串）；时间戳均为**毫秒**
 4. 周窗口按北京时间自然周对齐（实测周一 00:00 CST → 下周一 00:00 CST）
+5. Key 失效**不一定**是 HTTP 401/403：实测（2026-08-25）会话型 Key 失效时返回
+   HTTP 200 + `base_resp.status_code == 1004`（`"cookie is missing, log in again"`），
+   凭证失效识别要同时看业务码 1004
