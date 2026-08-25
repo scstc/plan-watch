@@ -4,19 +4,12 @@ import * as api from "./api";
 import type { Account, AccountStatus, AppConfig } from "./types";
 import { AccountCard } from "./components/AccountCard";
 import { AccountForm } from "./components/AccountForm";
+import { byId, EVENT_STATUS } from "./useQuotas";
 import { fmtClock } from "./format";
-
-const EVENT_STATUS = "status-updated";
 
 /** 数字输入就地钳制（空输入 Number("")=0 也会被拉回下限） */
 const clamp = (v: number, lo: number, hi: number): number =>
   Number.isNaN(v) ? lo : Math.max(lo, Math.min(hi, Math.round(v)));
-
-function byId(list: AccountStatus[]): Record<string, AccountStatus> {
-  const map: Record<string, AccountStatus> = {};
-  for (const s of list) map[s.accountId] = s;
-  return map;
-}
 
 export default function App() {
   const [config, setConfig] = useState<AppConfig | null>(null);
@@ -196,7 +189,6 @@ export default function App() {
               key={a.id}
               account={a}
               status={statuses[a.id]}
-              threshold={config.lowQuotaThreshold}
               onEdit={() => setEditing(a)}
               onDelete={() => void deleteAccount(a.id)}
               onToggle={(en) => void toggleAccount(a.id, en)}

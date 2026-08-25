@@ -23,7 +23,7 @@ export type ErrorKind = "auth" | "business" | "network";
 
 export interface QuotaTier {
   window: WindowKind;
-  /** 已用百分比 0–100（两个供应商统一为“已用”语义） */
+  /** 已用百分比 0–100（两个供应商统一为”已用”语义） */
   usedPercent: number;
   /** ISO 8601 重置时间 */
   resetsAt: string | null;
@@ -33,6 +33,8 @@ export interface QuotaTier {
   total: number | null;
   /** 智谱积分套餐的绝对量：剩余 */
   remaining: number | null;
+  /** 该窗口无限额（如 MiniMax 无周限额套餐），展示为 ∞ */
+  unlimited: boolean;
 }
 
 export interface AccountError {

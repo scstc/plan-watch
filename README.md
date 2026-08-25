@@ -7,13 +7,25 @@
 
 ## 目标特性
 
-- [x] 系统托盘常驻：图标颜色随额度变化，菜单 / tooltip 直显各套餐「已用百分比 / 重置时间」
+- [x] 桌面浮动列表：常驻置顶、可拖到任意位置（位置记忆）、一行一账号，
+      每账号两条渐变状态条（5 小时 / 周）+ 已用百分比 + 重置倒计时，无周限额显示 ∞
+- [x] 系统托盘：左键切换浮动列表显隐、右键打开设置、悬停 tooltip 摘要
 - [x] 多账号：同一供应商可配多把 Key，多供应商并存
 - [x] 定时刷新（间隔可配）+ 手动刷新
-- [x] 低额度阈值提醒（托盘变色 + 系统通知）
-- [x] Windows 任务栏托盘 & macOS 菜单栏
+- [x] 低额度阈值提醒（系统通知，带迟滞去重）
+- [x] Windows 任务栏托盘 & macOS 菜单栏（Accessory，不占 Dock）
 
 > 分阶段任务清单见 [TODO.md](TODO.md)。
+
+## 交互速览
+
+| 入口 | 行为 |
+|---|---|
+| 浮动列表 · 标题栏 | 按住拖动到任意位置（重启记忆） |
+| 浮动列表 · 账号行 | 点击打开设置编辑该账号 |
+| 浮动列表 · 底部 | ⟳ 立即刷新 · ⚙ 设置 · ⏻ 退出 |
+| 托盘左键 | 显示 / 隐藏浮动列表 |
+| 托盘右键 | 打开设置窗口 |
 
 ## 快速开始
 
@@ -23,7 +35,7 @@ npm run tauri dev     # 开发（首次运行会拉取 Rust 依赖，耐心等�
 npm run tauri build   # 打包
 ```
 
-- Rust 单测：`cargo test --manifest-path src-tauri/Cargo.toml`（含两个供应商解析与错误分类的 37 个边界用例）
+- Rust 单测：`cargo test --manifest-path src-tauri/Cargo.toml`（含两个供应商解析、错误分类与 ∞ 周限的 38 个边界用例）
 - 冒烟查询（无 GUI，走真实接口）：设置 `PW_ZHIPU_KEY` / `PW_MINIMAX_KEY` 环境变量后
   `cargo run --manifest-path src-tauri/Cargo.toml --example query`
 
@@ -50,20 +62,22 @@ npm run tauri build   # 打包
   （`src-tauri/src/services/coding_plan.rs`，覆盖了大量实测边界 case）
 
 ```
-├── src/                    # 设置窗口（React + TS + Vite）
-│   ├── App.tsx             # 主容器：通用设置 + 账号列表
+├── src/                    # 前端（React + TS + Vite，一个入口按窗口分流）
+│   ├── App.tsx             # main：设置窗口
+│   ├── FloatList.tsx       # float：桌面浮动额度列表
 │   └── components/         # 账号卡片 / 账号表单
 ├── src-tauri/
 │   ├── src/
 │   │   ├── quota/          # 统一数据模型 + MiniMax / 智谱查询解析（含单测）
-│   │   ├── config.rs       # 明文 JSON 配置读写
+│   │   ├── config.rs       # 明文 JSON 配置读写（原子写入 + .bak）
 │   │   ├── state.rs        # 共享状态
 │   │   ├── scheduler.rs    # 定时刷新 + 低额度通知（迟滞去重）
-│   │   ├── tray.rs         # 托盘菜单 / tooltip / 状态图标
+│   │   ├── tray.rs         # 托盘交互 / tooltip
+│   │   ├── tray_util.rs    # 窗口显示辅助（WebView2 白屏 nudge）
 │   │   └── commands.rs     # Tauri commands
 │   └── examples/query.rs   # 真实接口冒烟工具
 ├── docs/providers/         # 供应商余额查询接口调研文档
-└── tools/gen-icons.ps1     # 图标生成脚本（System.Drawing）
+└── tools/gen-icons.ps1     # 双色胶囊图标生成脚本（System.Drawing）
 ```
 
 ## License

@@ -27,9 +27,6 @@ pub struct Inner {
     /// 配置代数：save_config 每次提交 +1。在途刷新据此丢弃过期结果，
     /// 避免"保存了新 Key，却在途的旧 Key 查询结果反过来覆写状态"
     pub config_gen: AtomicU64,
-    /// 上次托盘菜单内容签名（内容不变则跳过 set_menu，
-    /// 避免刷新时关掉用户正打开的菜单）
-    pub menu_signature: Mutex<String>,
 }
 
 impl AppState {
@@ -42,7 +39,6 @@ impl AppState {
             refreshing: AtomicBool::new(false),
             refresh_dirty: AtomicBool::new(false),
             config_gen: AtomicU64::new(0),
-            menu_signature: Mutex::new(String::new()),
         }))
     }
 }

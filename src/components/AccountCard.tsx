@@ -14,20 +14,12 @@ import {
 interface Props {
   account: Account;
   status: AccountStatus | undefined;
-  /** 已用百分比 ≥ 该值视为低额度（黄/红） */
-  threshold: number;
   onEdit: () => void;
   onDelete: () => void;
   onToggle: (enabled: boolean) => void;
 }
 
-function tierLevel(usedPercent: number, threshold: number): string {
-  if (usedPercent >= 90) return "crit";
-  if (usedPercent >= threshold) return "warn";
-  return "ok";
-}
-
-export function AccountCard({ account, status, threshold, onEdit, onDelete, onToggle }: Props) {
+export function AccountCard({ account, status, onEdit, onDelete, onToggle }: Props) {
   const [confirming, setConfirming] = useState(false);
 
   return (
@@ -80,13 +72,19 @@ export function AccountCard({ account, status, threshold, onEdit, onDelete, onTo
                   <div className="tier" key={t.window}>
                     <span className="tier-name">{t.window === "five_hour" ? "5 小时" : "每周"}</span>
                     <div className="tier-bar">
-                      <div
-                        className={tierLevel(t.usedPercent, threshold)}
-                        style={{ width: `${Math.max(0, Math.min(100, t.usedPercent))}%` }}
-                      />
+                      {t.unlimited ? (
+                        <div className="inf" />
+                      ) : (
+                        <div
+                          className="grad"
+                          style={{ width: `${Math.max(0, Math.min(100, t.usedPercent))}%` }}
+                        />
+                      )}
                     </div>
-                    <span className="tier-pct">{fmtPercent(t.usedPercent)}</span>
-                    <span className="tier-reset">{t.resetsAt ? `重置 ${fmtReset(t.resetsAt)}` : "—"}</span>
+                    <span className="tier-pct">{t.unlimited ? "∞" : fmtPercent(t.usedPercent)}</span>
+                    <span className="tier-reset">
+                      {t.resetsAt ? `重置 ${fmtReset(t.resetsAt)}` : "—"}
+                    </span>
                     {t.total != null && (
                       <span className="tier-abs">
                         {fmtNum(t.used ?? 0)} / {fmtNum(t.total)}

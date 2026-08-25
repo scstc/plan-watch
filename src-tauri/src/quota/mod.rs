@@ -31,6 +31,9 @@ pub struct QuotaTier {
     pub total: Option<f64>,
     /// 智谱积分套餐的绝对量：剩余（remaining）
     pub remaining: Option<f64>,
+    /// 该窗口无限额（如 MiniMax 无周限额套餐）：展示为 ∞，额度恒不计入
+    #[serde(default)]
+    pub unlimited: bool,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]

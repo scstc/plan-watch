@@ -10,19 +10,8 @@
     "beforeBuildCommand": "npm run build:web"
   },
   "app": {
-    "windows": [
-      {
-        "label": "main",
-        "title": "plan-watch 设置",
-        "width": 760,
-        "height": 680,
-        "minWidth": 640,
-        "minHeight": 520,
-        "visible": false,
-        "center": true,
-        "resizable": true
-      }
-    ],
+    "macOSPrivateApi": true,
+    "windows": [],
     "security": {
       "csp": "default-src 'self'; connect-src 'self' ipc: http://ipc.localhost; img-src 'self' data:; style-src 'self' 'unsafe-inline'"
     }

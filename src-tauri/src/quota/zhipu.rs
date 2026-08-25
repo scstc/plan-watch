@@ -178,6 +178,7 @@ fn parse_zhipu_tiers(data: &Value) -> Vec<QuotaTier> {
                 used,
                 total,
                 remaining,
+                unlimited: false,
             });
         }
     }

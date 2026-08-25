@@ -84,7 +84,8 @@ fn outcome_from_body(body: &Value) -> QueryOutcome {
 /// 语义坑：`current_*_remaining_percent` 是**剩余**百分比（0–100），取反才是已用。
 /// `model_remains[]` 里只取 `model_name == "general"`（编程套餐），跳过 video 等。
 /// 5h 桶始终存在；周桶靠 `current_weekly_status == 1` 判定激活——
-/// 无周限额套餐该字段为 3 且 remaining_percent 恒为 100，必须跳过。
+/// 无周限额套餐该字段为 3（remaining_percent 恒为 100），生成一个
+/// `unlimited` 的周 tier 供展示为 ∞，而不是编造 0%/100% 的假数据。
 fn parse_minimax_tiers(body: &Value) -> Vec<QuotaTier> {
     let mut tiers = Vec::new();
 
@@ -117,28 +118,44 @@ fn parse_minimax_tiers(body: &Value) -> Vec<QuotaTier> {
             used: None,
             total: None,
             remaining: None,
+            unlimited: false,
         });
     }
 
-    // 周桶：仅当 status == 1 时激活；3 等表示无周限额，跳过
-    if item.get("current_weekly_status").and_then(|v| v.as_i64()) == Some(1) {
-        if let Some(remain_pct) = item
-            .get("current_weekly_remaining_percent")
-            .and_then(|v| v.as_f64())
-        {
-            let resets_at = item
-                .get("weekly_end_time")
-                .and_then(|v| v.as_i64())
-                .and_then(millis_to_iso8601);
-            tiers.push(QuotaTier {
-                window: WindowKind::Weekly,
-                used_percent: 100.0 - remain_pct,
-                resets_at,
-                used: None,
-                total: None,
-                remaining: None,
-            });
+    // 周桶：status == 1 → 激活，读剩余百分比；
+    // status 存在但 != 1 → 无周限额，产出 unlimited tier（展示 ∞）；
+    // status 字段缺失 → 形态未知，不产出。
+    match item.get("current_weekly_status").and_then(|v| v.as_i64()) {
+        Some(1) => {
+            if let Some(remain_pct) = item
+                .get("current_weekly_remaining_percent")
+                .and_then(|v| v.as_f64())
+            {
+                let resets_at = item
+                    .get("weekly_end_time")
+                    .and_then(|v| v.as_i64())
+                    .and_then(millis_to_iso8601);
+                tiers.push(QuotaTier {
+                    window: WindowKind::Weekly,
+                    used_percent: 100.0 - remain_pct,
+                    resets_at,
+                    used: None,
+                    total: None,
+                    remaining: None,
+                    unlimited: false,
+                });
+            }
         }
+        Some(_) => tiers.push(QuotaTier {
+            window: WindowKind::Weekly,
+            used_percent: 0.0,
+            resets_at: None,
+            used: None,
+            total: None,
+            remaining: None,
+            unlimited: true,
+        }),
+        None => {}
     }
 
     tiers
@@ -216,9 +233,11 @@ mod tests {
         assert_eq!(tiers.len(), 2);
         assert_eq!(tiers[0].window, WindowKind::FiveHour);
         assert_eq!(tiers[0].used_percent, 2.0);
+        assert!(!tiers[0].unlimited);
         assert!(tiers[0].resets_at.is_some());
         assert_eq!(tiers[1].window, WindowKind::Weekly);
         assert_eq!(tiers[1].used_percent, 5.0);
+        assert!(!tiers[1].unlimited);
         assert!(tiers[1].resets_at.is_some());
     }
 
@@ -300,9 +319,9 @@ mod tests {
     }
 
     #[test]
-    fn weekly_status_3_skips_weekly_tier() {
+    fn weekly_status_3_is_unlimited_weekly_tier() {
         // 无周限额套餐：current_weekly_status=3，remaining_percent 恒为 100，
-        // 不应产出 weekly tier（否则显示"0% 已用"的假周桶）
+        // 产出 unlimited 周 tier（展示 ∞），绝不把 100% 剩余当已用 0% 的真实数据
         let body = json!({
             "model_remains": [
                 {
@@ -330,15 +349,19 @@ mod tests {
             "base_resp": { "status_code": 0, "status_msg": "success" }
         });
         let tiers = parse_minimax_tiers(&body);
-        assert_eq!(tiers.len(), 1);
+        assert_eq!(tiers.len(), 2);
         assert_eq!(tiers[0].window, WindowKind::FiveHour);
         assert_eq!(tiers[0].used_percent, 1.0);
         assert!(tiers[0].resets_at.is_some());
+        assert_eq!(tiers[1].window, WindowKind::Weekly);
+        assert!(tiers[1].unlimited);
+        assert_eq!(tiers[1].used_percent, 0.0);
+        assert!(tiers[1].resets_at.is_none());
     }
 
     #[test]
-    fn weekly_status_2_also_skips_weekly_tier() {
-        // 防御性：除 1 之外的 status 都视为周桶未激活
+    fn weekly_status_2_also_unlimited() {
+        // 防御性：除 1 之外的 status 都视为无周限额（∞）
         let body = json!({
             "model_remains": [{
                 "model_name": "general",
@@ -348,8 +371,23 @@ mod tests {
             }]
         });
         let tiers = parse_minimax_tiers(&body);
-        assert_eq!(tiers.len(), 1);
+        assert_eq!(tiers.len(), 2);
         assert_eq!(tiers[0].window, WindowKind::FiveHour);
         assert_eq!(tiers[0].used_percent, 20.0);
+        assert!(tiers[1].unlimited);
+    }
+
+    #[test]
+    fn missing_weekly_status_yields_no_weekly_tier() {
+        // weekly_status 字段缺失 → 形态未知，不产出周 tier（与"明确无限"区分）
+        let body = json!({
+            "model_remains": [{
+                "model_name": "general",
+                "current_interval_remaining_percent": 60.0
+            }]
+        });
+        let tiers = parse_minimax_tiers(&body);
+        assert_eq!(tiers.len(), 1);
+        assert_eq!(tiers[0].window, WindowKind::FiveHour);
     }
 }

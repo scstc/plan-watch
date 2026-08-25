@@ -22,3 +22,13 @@ export function refreshNow(): Promise<void> {
 export function testAccount(account: Account): Promise<AccountStatus> {
   return invoke<AccountStatus>("test_account", { account });
 }
+
+/** 打开设置窗口 */
+export function openSettings(): Promise<void> {
+  return invoke<void>("open_settings");
+}
+
+/** 退出应用 */
+export function quitApp(): Promise<void> {
+  return invoke<void>("quit_app");
+}

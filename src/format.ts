@@ -22,6 +22,22 @@ export function fmtClock(ms: number | null): string {
   return `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
 }
 
+/** 距重置的剩余时长：45m / 3.2h / 2d4h；缺失/已过期/非法返回 null */
+export function fmtCountdown(iso: string | null): string | null {
+  if (!iso) return null;
+  const t = new Date(iso).getTime();
+  if (Number.isNaN(t)) return null;
+  const ms = t - Date.now();
+  if (ms <= 0) return "0m";
+  const mins = Math.floor(ms / 60_000);
+  if (mins < 60) return `${mins}m`;
+  const hours = ms / 3_600_000;
+  if (hours < 48) return `${hours >= 10 ? Math.round(hours) : hours.toFixed(1)}h`;
+  const days = Math.floor(hours / 24);
+  const remH = Math.round(hours % 24);
+  return remH > 0 ? `${days}d${remH}h` : `${days}d`;
+}
+
 /** 千分位整数 */
 export function fmtNum(x: number): string {
   return Math.round(x).toLocaleString("zh-CN");

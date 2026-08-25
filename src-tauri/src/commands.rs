@@ -79,3 +79,15 @@ pub async fn test_account(account: Account) -> AccountStatus {
         other => other.into_status(&account.id),
     }
 }
+
+/// 打开设置窗口（浮动列表 / 前端入口用）。
+#[tauri::command]
+pub fn open_settings(app: AppHandle) {
+    tray::show_settings(&app);
+}
+
+/// 退出应用（浮动列表底部按钮）。
+#[tauri::command]
+pub fn quit_app(app: AppHandle) {
+    app.exit(0);
+}
