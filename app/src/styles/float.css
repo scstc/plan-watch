@@ -1,0 +1,220 @@
+/* 浮动额度列表（float 窗口） */
+
+body:has(.float-list) {
+  background: var(--card);
+  overflow: hidden;
+}
+
+.float-list {
+  display: flex;
+  flex-direction: column;
+  min-height: 96px;
+  max-height: 420px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+  font-size: 12px;
+}
+
+.fl-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 5px 6px 5px 12px;
+  border-bottom: 1px solid var(--border);
+  cursor: move;
+  user-select: none;
+}
+
+.fl-title {
+  font-weight: 700;
+  font-size: 11px;
+  letter-spacing: 0.4px;
+}
+
+.fl-close {
+  border: none;
+  background: transparent;
+  padding: 2px 6px;
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.fl-close:hover {
+  color: var(--crit);
+}
+
+.fl-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+/* 一组：名称行 + 状态条 */
+
+.fl-account {
+  padding: 5px 8px 6px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.fl-account:hover {
+  background: var(--bg);
+}
+
+.fl-row {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+}
+
+.fl-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.fl-dot.ok {
+  background: var(--ok);
+}
+
+.fl-dot.warn {
+  background: var(--warn);
+}
+
+.fl-dot.crit {
+  background: var(--crit);
+}
+
+.fl-dot.idle {
+  background: var(--border);
+}
+
+.fl-dot.err {
+  background: transparent;
+  border: 2px solid var(--crit);
+  box-sizing: border-box;
+}
+
+.fl-name {
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex-shrink: 1;
+}
+
+.fl-tag {
+  margin-left: auto;
+  font-size: 10px;
+  color: var(--muted);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 0 6px;
+  flex-shrink: 0;
+}
+
+.fl-tag.err {
+  color: var(--crit);
+  border-color: var(--crit);
+}
+
+.fl-tag.stale {
+  color: var(--warn);
+  border-color: var(--warn);
+}
+
+/* 状态条：一行 = 标签 + 进度 + 百分比 + 倒计时 */
+
+.fl-bar-row {
+  display: grid;
+  grid-template-columns: 16px 1fr 32px 36px;
+  align-items: center;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.fl-bar-label {
+  color: var(--muted);
+  font-size: 10px;
+}
+
+.fl-bar {
+  height: 6px;
+  border-radius: 999px;
+  background: var(--border);
+  overflow: hidden;
+}
+
+.fl-bar > div {
+  height: 100%;
+  border-radius: 999px;
+  transition: width 0.3s ease;
+}
+
+.fl-bar-pct {
+  font-variant-numeric: tabular-nums;
+  color: var(--muted);
+  text-align: right;
+}
+
+.fl-cd {
+  font-size: 10px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.fl-error {
+  margin: 4px 2px 0;
+  font-size: 11px;
+  color: var(--crit);
+  overflow-wrap: anywhere;
+}
+
+.fl-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 14px 0;
+  color: var(--muted);
+}
+
+.fl-empty button {
+  font-size: 12px;
+  padding: 3px 10px;
+}
+
+.fl-foot {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 6px;
+  border-top: 1px solid var(--border);
+}
+
+.fl-foot button {
+  border: none;
+  background: transparent;
+  padding: 3px 8px;
+  font-size: 13px;
+  line-height: 1;
+  color: var(--muted);
+}
+
+.fl-foot button:hover {
+  color: var(--accent);
+  border: none;
+}
+
+.fl-quit:hover {
+  color: var(--crit) !important;
+}

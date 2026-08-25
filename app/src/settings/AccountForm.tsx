@@ -1,7 +1,7 @@
 import { useState } from "react";
-import * as api from "../api";
-import type { Account, AccountStatus, ProviderKind, Region } from "../types";
-import { PROVIDER_LABEL, REGION_LABEL, fmtPercent, fmtReset } from "../format";
+import * as api from "../shared/api";
+import type { Account, AccountStatus, ProviderKind, Region } from "../shared/types";
+import { PROVIDER_LABEL, REGION_LABEL, fmtPercent, fmtReset } from "../shared/format";
 
 interface Props {
   /** null = 新建 */
@@ -148,3 +148,5 @@ export function AccountForm({ initial, onSave, onCancel }: Props) {
     </div>
   );
 }
+
+

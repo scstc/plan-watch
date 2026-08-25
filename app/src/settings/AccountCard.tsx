@@ -1,5 +1,5 @@
 import { useState } from "react";
-import type { Account, AccountStatus } from "../types";
+import type { Account, AccountStatus } from "../shared/types";
 import {
   ERROR_KIND_LABEL,
   PROVIDER_LABEL,
@@ -9,7 +9,7 @@ import {
   fmtPercent,
   fmtReset,
   maskKey,
-} from "../format";
+} from "../shared/format";
 
 interface Props {
   account: Account;
@@ -114,3 +114,5 @@ export function AccountCard({ account, status, onEdit, onDelete, onToggle }: Pro
     </div>
   );
 }
+
+

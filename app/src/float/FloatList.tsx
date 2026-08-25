@@ -1,10 +1,10 @@
 import { useEffect, useRef } from "react";
 import { currentMonitor, getCurrentWindow } from "@tauri-apps/api/window";
 import { LogicalSize, PhysicalPosition } from "@tauri-apps/api/dpi";
-import * as api from "./api";
-import { accountsOf, useQuotas } from "./useQuotas";
-import type { Account, AccountStatus, QuotaTier } from "./types";
-import { ERROR_KIND_LABEL, fmtCountdown, fmtPercent, fmtReset } from "./format";
+import * as api from "../shared/api";
+import { accountsOf, useQuotas } from "../shared/useQuotas";
+import type { Account, AccountStatus, QuotaTier } from "../shared/types";
+import { ERROR_KIND_LABEL, fmtCountdown, fmtPercent, fmtReset } from "../shared/format";
 
 /** 首次放置标记：之后的位置交给 window-state 插件持久化 */
 const PLACED_KEY = "pw-float-placed";
@@ -198,3 +198,4 @@ export default function FloatList() {
     </div>
   );
 }
+

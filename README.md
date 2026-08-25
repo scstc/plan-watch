@@ -30,14 +30,16 @@
 ## 快速开始
 
 ```bash
+cd app
 npm install
 npm run tauri dev     # 开发（首次运行会拉取 Rust 依赖，耐心等待）
 npm run tauri build   # 打包
 ```
 
-- Rust 单测：`cargo test --manifest-path src-tauri/Cargo.toml`（含两个供应商解析、错误分类与 ∞ 周限的 38 个边界用例）
+- Rust 单测：`cargo test --manifest-path app/src-tauri/Cargo.toml`
+  （含两个供应商解析、错误分类与 ∞ 周限的 38 个边界用例）
 - 冒烟查询（无 GUI，走真实接口）：设置 `PW_ZHIPU_KEY` / `PW_MINIMAX_KEY` 环境变量后
-  `cargo run --manifest-path src-tauri/Cargo.toml --example query`
+  `cargo run --manifest-path app/src-tauri/Cargo.toml --example query`
 
 配置文件（明文 JSON，v0.x 既定方案）：
 
@@ -81,20 +83,23 @@ mvn -f server/pom.xml spring-boot:run
   （`src-tauri/src/services/coding_plan.rs`，覆盖了大量实测边界 case）
 
 ```
-├── src/                    # 前端（React + TS + Vite，一个入口按窗口分流）
-│   ├── App.tsx             # main：设置窗口
-│   ├── FloatList.tsx       # float：桌面浮动额度列表
-│   └── components/         # 账号卡片 / 账号表单
-├── src-tauri/
-│   ├── src/
-│   │   ├── quota/          # 统一数据模型 + MiniMax / 智谱查询解析（含单测）
-│   │   ├── config.rs       # 明文 JSON 配置读写（原子写入 + .bak）
-│   │   ├── state.rs        # 共享状态
-│   │   ├── scheduler.rs    # 定时刷新 + 低额度通知（迟滞去重）
-│   │   ├── tray.rs         # 托盘交互 / tooltip
-│   │   ├── tray_util.rs    # 窗口显示辅助（WebView2 白屏 nudge）
-│   │   └── commands.rs     # Tauri commands
-│   └── examples/query.rs   # 真实接口冒烟工具
+├── app/                    # Tauri 桌面应用（自包含，可独立构建）
+│   ├── src/                # 前端（React + TS + Vite，按窗口分层）
+│   │   ├── shared/         # 跨窗口共享：types / format / api / useQuotas
+│   │   ├── settings/       # 设置窗口：SettingsApp + GeneralSettingsCard + 账号卡片/表单
+│   │   ├── float/          # 浮动额度列表窗口
+│   │   └── styles/         # base（变量与通用件）/ settings / float
+│   └── src-tauri/          # Rust 桌面端
+│       └── src/
+│           ├── quota/      # 统一数据模型 + MiniMax / 智谱查询解析（含单测）
+│           ├── config.rs   # 明文 JSON 配置读写（原子写入 + .bak）
+│           ├── state.rs    # 共享状态
+│           ├── scheduler.rs# 定时刷新 + 低额度通知（迟滞去重）
+│           ├── tray.rs     # 托盘交互 / tooltip
+│           ├── tray_util.rs# 窗口显示辅助（WebView2 白屏 nudge）
+│           └── commands.rs # Tauri commands
+├── server/                 # Spring Boot 4.1.x 服务端（REST API 与桌面端同构）
+│   └── src/main/java/com/planwatch/server/{model,service,web}
 ├── docs/providers/         # 供应商余额查询接口调研文档
 └── tools/gen-icons.ps1     # 双色胶囊图标生成脚本（System.Drawing）
 ```

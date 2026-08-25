@@ -1,0 +1,222 @@
+/* 设置窗口（main）：页面布局 / 卡片 / 账号卡片与表单 / 额度条 */
+
+.app {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 20px 24px 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+h1 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+h1 .badge {
+  font-size: 11px;
+}
+
+header h1 {
+  margin: 0;
+  font-size: 20px;
+}
+
+header p {
+  margin: 2px 0 0;
+}
+
+.card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.card-head h2 {
+  margin: 0;
+  font-size: 15px;
+}
+
+h3 {
+  margin: 0 0 4px;
+  font-size: 14px;
+}
+
+/* ── 表单 ── */
+
+.form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 12px;
+  align-items: end;
+}
+
+.form-grid .span-2 {
+  grid-column: span 2;
+}
+
+.form-grid .span-3 {
+  grid-column: span 3;
+}
+
+.form-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.form-actions.inline {
+  padding-bottom: 1px;
+}
+
+.form-result p {
+  margin: 0;
+}
+
+/* ── 账号列表 ── */
+
+.account-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.account-card {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.account-card.disabled {
+  opacity: 0.6;
+}
+
+.account-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.account-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+
+.account-name {
+  font-weight: 600;
+}
+
+.account-actions {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.account-key {
+  font-family: ui-monospace, Consolas, monospace;
+  font-size: 12px;
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.account-body {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+/* ── 额度条（账号卡片内）── */
+
+.tiers {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.tier {
+  display: grid;
+  grid-template-columns: 48px 1fr 44px 110px 110px;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+}
+
+.tier-name {
+  color: var(--muted);
+}
+
+.tier-bar {
+  height: 8px;
+  border-radius: 999px;
+  background: var(--border);
+  overflow: hidden;
+}
+
+.tier-bar > div {
+  height: 100%;
+  border-radius: 999px;
+  transition: width 0.3s ease;
+}
+
+.tier-pct {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.tier-reset {
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.tier-abs {
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+/* ── 账号表单 ── */
+
+.account-form {
+  border: 1px dashed var(--accent);
+  border-radius: 8px;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.account-form .form-grid {
+  grid-template-columns: 2fr 1fr 1fr;
+}
+
+footer {
+  text-align: center;
+}

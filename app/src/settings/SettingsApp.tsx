@@ -1,35 +1,20 @@
 import { useCallback, useEffect, useState } from "react";
 import { listen } from "@tauri-apps/api/event";
-import * as api from "./api";
-import type { Account, AccountStatus, AppConfig } from "./types";
-import { AccountCard } from "./components/AccountCard";
-import { AccountForm } from "./components/AccountForm";
-import { byId, EVENT_STATUS } from "./useQuotas";
-import { fmtClock } from "./format";
+import * as api from "../shared/api";
+import type { Account, AccountStatus, AppConfig } from "../shared/types";
+import { AccountCard } from "./AccountCard";
+import { AccountForm } from "./AccountForm";
+import { GeneralSettingsCard } from "./GeneralSettingsCard";
+import { byId, EVENT_STATUS } from "../shared/useQuotas";
+import { fmtClock } from "../shared/format";
 
-/** 数字输入就地钳制（空输入 Number("")=0 也会被拉回下限） */
-const clamp = (v: number, lo: number, hi: number): number =>
-  Number.isNaN(v) ? lo : Math.max(lo, Math.min(hi, Math.round(v)));
-
-export default function App() {
+/** 设置窗口（main）：数据加载 + 账号管理 + 通用设置 */
+export default function SettingsApp() {
   const [config, setConfig] = useState<AppConfig | null>(null);
   const [statuses, setStatuses] = useState<Record<string, AccountStatus>>({});
   const [editing, setEditing] = useState<Account | "new" | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [serverUrl, setServerUrlDraft] = useState(api.getServerUrl());
-
-  // 通用设置的草稿（从 config 同步，保存后落盘）
-  const [intervalMin, setIntervalMin] = useState(5);
-  const [threshold, setThreshold] = useState(80);
-
-  // config 变化时同步草稿（初始加载 / 服务端返回规范化值 / 回滚）
-  useEffect(() => {
-    if (config) {
-      setIntervalMin(Math.max(1, Math.round(config.refreshIntervalSecs / 60)));
-      setThreshold(config.lowQuotaThreshold);
-    }
-  }, [config?.refreshIntervalSecs, config?.lowQuotaThreshold]);
 
   useEffect(() => {
     let alive = true;
@@ -40,13 +25,10 @@ export default function App() {
         const [cfg, sts] = await Promise.all([api.getConfig(), api.getStatuses()]);
         if (!alive) return;
         setConfig(cfg);
-        setIntervalMin(Math.max(1, Math.round(cfg.refreshIntervalSecs / 60)));
-        setThreshold(cfg.lowQuotaThreshold);
         setStatuses(byId(sts));
         setLoadError(null);
       } catch (e) {
         if (alive) setLoadError(String(e));
-        return;
       }
     };
     void loadAll();
@@ -84,6 +66,7 @@ export default function App() {
     setRefreshing(true);
     try {
       await api.refreshNow();
+      setStatuses(byId(await api.getStatuses()));
     } catch (e) {
       setLoadError(String(e));
     } finally {
@@ -122,25 +105,6 @@ export default function App() {
     [config, persist],
   );
 
-  const saveGeneral = useCallback(async () => {
-    if (!config) return;
-    // 后端接口地址是本机偏好（localStorage），不进 AppConfig
-    api.setServerUrl(serverUrl);
-    // 数据源可能切换：先按新模式取最新配置做基底，
-    // 避免把本地账号清单覆盖到服务端（或反之）
-    let base = config;
-    try {
-      base = await api.getConfig();
-    } catch {
-      // 地址不可达等：继续用当前 config 保存，错误经 persist 的回滚路径浮出
-    }
-    await persist({
-      ...base,
-      refreshIntervalSecs: Math.max(60, Math.min(86_400, Math.round(intervalMin * 60))),
-      lowQuotaThreshold: Math.max(10, Math.min(99, Math.round(threshold))),
-    });
-  }, [config, intervalMin, threshold, serverUrl, persist]);
-
   if (loadError && !config) {
     return <div className="app">加载失败：{loadError}</div>;
   }
@@ -149,10 +113,6 @@ export default function App() {
   }
 
   const lastRefreshMs = Math.max(0, ...Object.values(statuses).map((s) => s.queriedAt ?? 0));
-  const generalDirty =
-    Math.round(intervalMin * 60) !== config.refreshIntervalSecs ||
-    Math.round(threshold) !== config.lowQuotaThreshold ||
-    serverUrl.trim() !== api.getServerUrl();
 
   return (
     <div className="app">
@@ -174,47 +134,7 @@ export default function App() {
 
       {loadError && <p className="error-banner">{loadError}</p>}
 
-      <section className="card">
-        <div className="card-head">
-          <h2>通用设置</h2>
-        </div>
-        <div className="form-grid">
-          <label>
-            刷新间隔（分钟）
-            <input
-              type="number"
-              min={1}
-              max={1440}
-              value={intervalMin}
-              onChange={(e) => setIntervalMin(clamp(Number(e.target.value), 1, 1440))}
-            />
-          </label>
-          <label>
-            低额度提醒阈值（% 已用）
-            <input
-              type="number"
-              min={10}
-              max={99}
-              value={threshold}
-              onChange={(e) => setThreshold(clamp(Number(e.target.value), 10, 99))}
-            />
-          </label>
-          <div className="form-actions inline">
-            <button className="primary" onClick={saveGeneral} disabled={!generalDirty}>
-              保存设置
-            </button>
-          </div>
-          <label className="span-3">
-            后端接口地址（填了走服务端取数，留空使用本地查询）
-            <input
-              value={serverUrl}
-              onChange={(e) => setServerUrlDraft(e.target.value)}
-              placeholder="http://192.168.1.100:8787"
-              spellCheck={false}
-            />
-          </label>
-        </div>
-      </section>
+      <GeneralSettingsCard config={config} persist={persist} onSaved={() => void handleRefresh()} />
 
       <section className="card">
         <div className="card-head">
@@ -251,7 +171,7 @@ export default function App() {
       </section>
 
       <footer className="muted small">
-        关闭窗口即隐藏到托盘继续监控；额度变化从托盘菜单查看。plan-watch v0.3.0
+        关闭窗口即隐藏到托盘继续监控；额度变化看浮动列表。plan-watch v0.3.0
       </footer>
     </div>
   );
