@@ -1,0 +1,13 @@
+server:
+  port: 8787
+
+spring:
+  threads:
+    virtual:
+      enabled: true
+  jackson:
+    default-property-inclusion: always
+
+planwatch:
+  # 配置与数据目录（config.json 所在）；可用环境变量 PLANWATCH_DATADIR 或启动参数覆盖
+  data-dir: ./data

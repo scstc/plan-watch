@@ -34,6 +34,18 @@
 - [x] 双色胶囊品牌图标（左绿右红）：应用图标 + 托盘图标统一（`tools/gen-icons.ps1`）
 - [x] macOS：Accessory 激活策略（不占 Dock）；窗口在 manage() 之后动态创建（修复启动竞态 panic）
 
+## v0.4 — 服务端模式（2026-08-25）
+
+- [x] Spring Boot 4.1.x 服务端（`server/`，JDK 26）：与桌面端 Tauri commands 同构的 REST API
+      （GET/PUT `/api/config`、GET `/api/statuses`、POST `/api/refresh`、POST `/api/test`），
+      查询/解析/错误分类逻辑从 Rust 完整移植（9 个单测）
+- [x] 设置页新增「后端接口地址」：填了走服务端取数（轮询 15s），留空使用本地查询；
+      服务端模式下标题栏显示「服务端」徽标
+- [x] API 全链路 CORS 放开（Tauri webview 的 `http://tauri.localhost` 源可直接访问）
+- [ ] 服务端：低额度通知（目前只有桌面端有；服务端无桌面，可考虑 webhook / 邮件）
+- [ ] 服务端：把打包后的前端 dist/ 也托管出来（现在只提供 API，UI 仍走 Tauri）
+- [ ] 多客户端场景：服务端保存配置被并发 PUT 覆盖时的提示
+
 ## v0.4+ — 扩展
 
 - [x] MiniMax / 智谱国际站切换（`api.minimax.io`、`api.z.ai`，账号 region 字段）

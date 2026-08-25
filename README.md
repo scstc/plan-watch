@@ -44,6 +44,25 @@ npm run tauri build   # 打包
 - Windows：`%APPDATA%\com.planwatch.app\config.json`
 - macOS：`~/Library/Application Support/com.planwatch.app/config.json`
 
+## 服务端模式（可选）
+
+同一套前端可以改从一个 Spring Boot 服务端取数（接口与本地查询完全同构）：
+
+```powershell
+# 启动服务端（Spring Boot 4.1.x，JDK 26；默认端口 8787，配置存 server/data/config.json）
+$env:JAVA_HOME = "C:\Users\turin\.jdks\openjdk-26.0.2"
+mvn -f server/pom.xml spring-boot:run
+```
+
+然后在应用「通用设置 → 后端接口地址」填 `http://127.0.0.1:8787`（或局域网内服务端地址）并保存：
+
+- 标题栏出现「服务端」徽标，所有账号/状态/测试连接都走服务端（15s 轮询）
+- 清空该地址即回到本地查询模式（地址是本机偏好，不随配置同步）
+- REST API：`GET/PUT /api/config`、`GET /api/statuses`、`POST /api/refresh`、`POST /api/test`，
+  CORS 全放开，可被任意前端复用；服务端单测 `mvn -f server/pom.xml test`（9 个解析用例）
+
+> 注意：`server/data/` 含真实 API Key，已加入 .gitignore，不入库。
+
 ## 初始支持供应商
 
 | 供应商 | 站点 | 接口文档 |

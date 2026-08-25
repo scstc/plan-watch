@@ -66,6 +66,16 @@ header {
   justify-content: space-between;
 }
 
+h1 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+h1 .badge {
+  font-size: 11px;
+}
+
 header h1 {
   margin: 0;
   font-size: 20px;
@@ -124,6 +134,10 @@ h3 {
 
 .form-grid .span-2 {
   grid-column: span 2;
+}
+
+.form-grid .span-3 {
+  grid-column: span 3;
 }
 
 label {

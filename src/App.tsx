@@ -17,33 +17,63 @@ export default function App() {
   const [editing, setEditing] = useState<Account | "new" | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [serverUrl, setServerUrlDraft] = useState(api.getServerUrl());
 
   // 通用设置的草稿（从 config 同步，保存后落盘）
   const [intervalMin, setIntervalMin] = useState(5);
   const [threshold, setThreshold] = useState(80);
 
+  // config 变化时同步草稿（初始加载 / 服务端返回规范化值 / 回滚）
   useEffect(() => {
+    if (config) {
+      setIntervalMin(Math.max(1, Math.round(config.refreshIntervalSecs / 60)));
+      setThreshold(config.lowQuotaThreshold);
+    }
+  }, [config?.refreshIntervalSecs, config?.lowQuotaThreshold]);
+
+  useEffect(() => {
+    let alive = true;
     let unlisten: (() => void) | null = null;
-    (async () => {
+
+    const loadAll = async () => {
       try {
         const [cfg, sts] = await Promise.all([api.getConfig(), api.getStatuses()]);
+        if (!alive) return;
         setConfig(cfg);
         setIntervalMin(Math.max(1, Math.round(cfg.refreshIntervalSecs / 60)));
         setThreshold(cfg.lowQuotaThreshold);
         setStatuses(byId(sts));
+        setLoadError(null);
       } catch (e) {
-        setLoadError(String(e));
+        if (alive) setLoadError(String(e));
         return;
       }
-      unlisten = await listen<AccountStatus[]>(EVENT_STATUS, (ev) => setStatuses(byId(ev.payload)));
-    })();
-    return () => unlisten?.();
+    };
+    void loadAll();
+    // 轮询兜底（服务端模式的主通道）
+    const timer = setInterval(() => {
+      if (alive) void loadAll();
+    }, 15_000);
+
+    void listen<AccountStatus[]>(EVENT_STATUS, (ev) => {
+      if (alive && !api.isServerMode()) setStatuses(byId(ev.payload));
+    }).then((u) => {
+      if (alive) unlisten = u;
+    });
+
+    return () => {
+      alive = false;
+      clearInterval(timer);
+      unlisten?.();
+    };
   }, []);
 
   const persist = useCallback(async (next: AppConfig) => {
     setConfig(next); // 乐观更新，失败则回滚
     try {
-      await api.saveConfig(next);
+      const saved = await api.saveConfig(next);
+      // 服务端模式返回服务端规范化后的配置（钳制/去重后的值）
+      if (saved) setConfig(saved);
     } catch (e) {
       setLoadError(`保存失败：${String(e)}`);
       setConfig(await api.getConfig());
@@ -94,12 +124,22 @@ export default function App() {
 
   const saveGeneral = useCallback(async () => {
     if (!config) return;
+    // 后端接口地址是本机偏好（localStorage），不进 AppConfig
+    api.setServerUrl(serverUrl);
+    // 数据源可能切换：先按新模式取最新配置做基底，
+    // 避免把本地账号清单覆盖到服务端（或反之）
+    let base = config;
+    try {
+      base = await api.getConfig();
+    } catch {
+      // 地址不可达等：继续用当前 config 保存，错误经 persist 的回滚路径浮出
+    }
     await persist({
-      ...config,
+      ...base,
       refreshIntervalSecs: Math.max(60, Math.min(86_400, Math.round(intervalMin * 60))),
       lowQuotaThreshold: Math.max(10, Math.min(99, Math.round(threshold))),
     });
-  }, [config, intervalMin, threshold, persist]);
+  }, [config, intervalMin, threshold, serverUrl, persist]);
 
   if (loadError && !config) {
     return <div className="app">加载失败：{loadError}</div>;
@@ -111,13 +151,17 @@ export default function App() {
   const lastRefreshMs = Math.max(0, ...Object.values(statuses).map((s) => s.queriedAt ?? 0));
   const generalDirty =
     Math.round(intervalMin * 60) !== config.refreshIntervalSecs ||
-    Math.round(threshold) !== config.lowQuotaThreshold;
+    Math.round(threshold) !== config.lowQuotaThreshold ||
+    serverUrl.trim() !== api.getServerUrl();
 
   return (
     <div className="app">
       <header>
         <div>
-          <h1>plan-watch</h1>
+          <h1>
+            plan-watch
+            {api.isServerMode() && <span className="badge" title={api.getServerUrl()}>服务端</span>}
+          </h1>
           <p className="muted">
             {lastRefreshMs > 0 ? `上次刷新 ${fmtClock(lastRefreshMs)}` : "尚未刷新"}
             {statuses && Object.keys(statuses).length > 0 ? ` · ${Object.keys(statuses).length} 个账号` : ""}
@@ -160,6 +204,15 @@ export default function App() {
               保存设置
             </button>
           </div>
+          <label className="span-3">
+            后端接口地址（填了走服务端取数，留空使用本地查询）
+            <input
+              value={serverUrl}
+              onChange={(e) => setServerUrlDraft(e.target.value)}
+              placeholder="http://192.168.1.100:8787"
+              spellCheck={false}
+            />
+          </label>
         </div>
       </section>
 

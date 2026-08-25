@@ -5,6 +5,9 @@ node_modules/
 dist/
 target/
 
+# plan-watch server: runtime data dir (contains real API keys in config.json)
+server/data/
+
 # Environment & secrets
 .env
 .env.*
