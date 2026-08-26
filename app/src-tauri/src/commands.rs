@@ -91,3 +91,40 @@ pub fn open_settings(app: AppHandle) {
 pub fn quit_app(app: AppHandle) {
     app.exit(0);
 }
+
+/// 通用 HTTP 代理：前端用 invoke 调到 Rust 侧发起请求，绕过 WebView2
+/// 在 production 模式下对明文跨网段 fetch 的限制。
+/// 返回 (status, body_text, error_message)；任一为空表示该字段无值。
+#[tauri::command]
+pub async fn http_request(
+    url: String,
+    method: String,
+    headers: std::collections::HashMap<String, String>,
+    body: Option<String>,
+) -> Result<HttpResponse, String> {
+    use std::time::Duration;
+    let client = reqwest::Client::builder()
+        .timeout(Duration::from_secs(10))
+        .build()
+        .map_err(|e| format!("build client: {e}"))?;
+    let mut req = client.request(
+        method.parse().map_err(|e| format!("bad method: {e}"))?,
+        &url,
+    );
+    for (k, v) in &headers {
+        req = req.header(k, v);
+    }
+    if let Some(b) = body {
+        req = req.body(b);
+    }
+    let resp = req.send().await.map_err(|e| format!("send: {e}"))?;
+    let status = resp.status().as_u16() as i32;
+    let text = resp.text().await.map_err(|e| format!("read body: {e}"))?;
+    Ok(HttpResponse { status, body: text })
+}
+
+#[derive(serde::Serialize)]
+pub struct HttpResponse {
+    pub status: i32,
+    pub body: String,
+}

@@ -103,6 +103,7 @@ pub fn run() {
             commands::test_account,
             commands::open_settings,
             commands::quit_app,
+            commands::http_request,
         ])
         .run(tauri::generate_context!())
         .expect("error while running plan-watch");

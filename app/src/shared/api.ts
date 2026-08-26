@@ -50,6 +50,42 @@ function clearToken(): void {
 const inTauri = typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
 
 /**
+ * 走 Rust 侧的 HTTP 代理（Tauri invoke "http_request"）。
+ * 绕开 WebView2 在 production 模式下对明文跨网段 fetch 的拦截。
+ * 仅在 Tauri 环境内可用；web 端降级为浏览器 fetch（开发预览场景）。
+ */
+async function invokeHttp(
+  url: string,
+  init: RequestInit,
+): Promise<{ status: number; body: string }> {
+  if (!inTauri) {
+    // 浏览器内：保留原 fetch 行为，供 vite dev 浏览器调试
+    const resp = await fetch(url, init);
+    const body = await resp.text().catch(() => "");
+    return { status: resp.status, body };
+  }
+  const headers: Record<string, string> = {};
+  if (init.headers) {
+    const h = init.headers;
+    if (h instanceof Headers) {
+      h.forEach((v, k) => {
+        headers[k] = v;
+      });
+    } else if (Array.isArray(h)) {
+      for (const [k, v] of h) headers[k] = v;
+    } else {
+      Object.assign(headers, h as Record<string, string>);
+    }
+  }
+  return invoke<{ status: number; body: string }>("http_request", {
+    url,
+    method: (init.method ?? "GET").toUpperCase(),
+    headers,
+    body: typeof init.body === "string" ? init.body : null,
+  });
+}
+
+/**
  * 服务端模式的唯一 HTTP 出口：每个请求带 Authorization: Bearer <token>。
  * 服务端换 / 吊销 token 后首次请求返回 401 PW_AUTH_REQUIRED → 清本地 token
  * 并抛带指引的错误，由 UI 引导用户回到「设备配对」。
@@ -60,27 +96,33 @@ async function http<T>(path: string, init?: RequestInit): Promise<T> {
   if (!token) {
     throw new Error("设备未配对：请到 设置→通用设置「设备配对」输入服务端启动日志中的配对码");
   }
-  const resp = await fetch(serverUrl + path, {
-    ...init,
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
-      ...(init?.headers ?? {}),
-    },
-  });
-  const text = await resp.text().catch(() => "");
-  if (!resp.ok) {
-    if (resp.status === 401 && text.includes("PW_AUTH_REQUIRED")) {
-      clearToken();
-      throw new Error("设备未配对：请到 设置→通用设置「设备配对」输入服务端启动日志中的配对码");
-    }
-    throw new Error(`HTTP ${resp.status}${text ? `: ${text.slice(0, 200)}` : ""}`);
+  let resp: { status: number; body: string };
+  try {
+    resp = await invokeHttp(serverUrl + path, {
+      ...init,
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+        ...(init?.headers ?? {}),
+      },
+    });
+  } catch (e) {
+    throw new Error(
+      `无法连接 ${serverUrl}：${e instanceof Error ? e.message : String(e)}\n` +
+        "（请确认服务端在运行，且本机与该地址在同一网段/不被防火墙拦截）",
+    );
   }
-  if (text.startsWith("<")) {
-    // 典型场景：后端地址误填成了网页（vite/网关返回 HTML），提前给出可读错误
+  if (resp.status === 401 && resp.body.includes("PW_AUTH_REQUIRED")) {
+    clearToken();
+    throw new Error("设备未配对：请到 设置→通用设置「设备配对」输入服务端启动日志中的配对码");
+  }
+  if (resp.status < 200 || resp.status >= 300) {
+    throw new Error(`HTTP ${resp.status}${resp.body ? `: ${resp.body.slice(0, 200)}` : ""}`);
+  }
+  if (resp.body.startsWith("<")) {
     throw new Error("服务端返回的不是 JSON（后端接口地址疑似填错，当前指向网页）");
   }
-  return JSON.parse(text) as T;
+  return JSON.parse(resp.body) as T;
 }
 
 /** 设备配对：提交配对码 → 拿到 bearer → 持久化。 */
@@ -91,9 +133,9 @@ export async function pairServer(code: string): Promise<void> {
   }
   // 配对码按 UI 视觉格式（1234-5678）发送；服务端也会自行去 dash
   const dashed = code.trim().replace(/^(\d{4})(\d{4})$/, "$1-$2");
-  let resp: Response;
+  let resp: { status: number; body: string };
   try {
-    resp = await fetch(serverUrl + "/api/pair", {
+    resp = await invokeHttp(serverUrl + "/api/pair", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -102,23 +144,21 @@ export async function pairServer(code: string): Promise<void> {
       }),
     });
   } catch (e) {
-    // 浏览器 fetch 早期失败：DNS / 拒绝连接 / 跨源 / WebView 拦截等
     throw new Error(
       `无法连接 ${serverUrl}：${e instanceof Error ? e.message : String(e)}\n` +
         "（请确认服务端在运行，且本机与该地址在同一网段/不被防火墙拦截）",
     );
   }
-  const text = await resp.text().catch(() => "");
-  if (!resp.ok) {
-    if (text.includes("PW_PAIR_LOCKED")) {
-      throw new Error("配对尝试过于频繁，服务端已临时锁定，请稍后再试");
-    }
-    if (text.includes("PW_PAIR_BAD")) {
-      throw new Error("配对码错误（请核对服务端启动日志中的 8 位数字）");
-    }
-    throw new Error(`HTTP ${resp.status}${text ? `: ${text.slice(0, 200)}` : ""}`);
+  if (resp.status === 429 || resp.body.includes("PW_PAIR_LOCKED")) {
+    throw new Error("配对尝试过于频繁，服务端已临时锁定，请稍后再试");
   }
-  const { token } = JSON.parse(text) as { token: string };
+  if (resp.body.includes("PW_PAIR_BAD")) {
+    throw new Error("配对码错误（请核对服务端启动日志中的 8 位数字）");
+  }
+  if (resp.status < 200 || resp.status >= 300) {
+    throw new Error(`HTTP ${resp.status}${resp.body ? `: ${resp.body.slice(0, 200)}` : ""}`);
+  }
+  const { token } = JSON.parse(resp.body) as { token: string };
   setToken(token);
 }
 
