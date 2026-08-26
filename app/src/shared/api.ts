@@ -86,16 +86,28 @@ async function http<T>(path: string, init?: RequestInit): Promise<T> {
 /** 设备配对：提交配对码 → 拿到 bearer → 持久化。 */
 export async function pairServer(code: string): Promise<void> {
   const serverUrl = getServerUrl();
+  if (!serverUrl) {
+    throw new Error("请先填写后端接口地址");
+  }
   // 配对码按 UI 视觉格式（1234-5678）发送；服务端也会自行去 dash
   const dashed = code.trim().replace(/^(\d{4})(\d{4})$/, "$1-$2");
-  const resp = await fetch(serverUrl + "/api/pair", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      code: dashed,
-      name: `plan-watch@${navigator.platform || "desktop"}`,
-    }),
-  });
+  let resp: Response;
+  try {
+    resp = await fetch(serverUrl + "/api/pair", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        code: dashed,
+        name: `plan-watch@${navigator.platform || "desktop"}`,
+      }),
+    });
+  } catch (e) {
+    // 浏览器 fetch 早期失败：DNS / 拒绝连接 / 跨源 / WebView 拦截等
+    throw new Error(
+      `无法连接 ${serverUrl}：${e instanceof Error ? e.message : String(e)}\n` +
+        "（请确认服务端在运行，且本机与该地址在同一网段/不被防火墙拦截）",
+    );
+  }
   const text = await resp.text().catch(() => "");
   if (!resp.ok) {
     if (text.includes("PW_PAIR_LOCKED")) {
