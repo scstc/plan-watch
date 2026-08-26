@@ -1,16 +1,17 @@
 import { invoke } from "@tauri-apps/api/core";
-import * as pwcrypto from "./crypto";
 import type { Account, AccountStatus, AppConfig } from "./types";
 
 /**
  * 数据源适配层：
  * - 本地模式（默认）：走 Tauri IPC（桌面端自己查询）
  * - 服务端模式：配置了后端接口地址后，全部数据走 HTTP（Spring Boot 服务端，
- *   接口与 Tauri commands 同构，见 server/）。请求经 crypto.ts 端到端加密
- *   （X-PW-Key + AES-GCM 信封，协议见 server CryptoService / README）。
- * 地址存在 localStorage（设备本地偏好，不随配置同步）。
+ *   接口与 Tauri commands 同构，见 server/）。鉴权用 Bearer token（从服务端
+ *   /api/pair 拿），协议见 server AuthService / README。
+ * 地址与 token 都在 localStorage（设备本地偏好，不随配置同步）。
  */
 const SERVER_URL_KEY = "pw-server-url";
+/** 已签发的 bearer token，按服务端地址分桶；切换地址即换独立身份 */
+const tokenKey = (url: string) => `pw-token:${url}`;
 
 export function getServerUrl(): string {
   return (localStorage.getItem(SERVER_URL_KEY) ?? "").trim().replace(/\/+$/, "");
@@ -29,40 +30,91 @@ export function isServerMode(): boolean {
   return getServerUrl() !== "";
 }
 
+/** 当前 URL 下是否已签发并存储了 bearer token（仅用于 UI 提示，非安全判断）。 */
+export function hasToken(): boolean {
+  return localStorage.getItem(tokenKey(getServerUrl())) !== null;
+}
+
+function getToken(): string | null {
+  return localStorage.getItem(tokenKey(getServerUrl()));
+}
+
+function setToken(token: string): void {
+  localStorage.setItem(tokenKey(getServerUrl()), token);
+}
+
+function clearToken(): void {
+  localStorage.removeItem(tokenKey(getServerUrl()));
+}
+
 const inTauri = typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
 
 /**
- * 服务端模式的唯一 HTTP 出口：透明加解密（公钥获取在 http 之外，避免递归）。
- * - 请求：一次性 AES 密钥经服务端公钥包裹放 X-PW-Key，body 加密为信封
- * - 响应：信封解密；非信封按明文透传（服务端 required=false 兼容模式 / 网关错误页）
- * - 公钥轮换自愈：服务端换密钥后首次请求必报 PW_KEY_UNWRAP_FAILED，重取公钥重试一次
+ * 服务端模式的唯一 HTTP 出口：每个请求带 Authorization: Bearer <token>。
+ * 服务端换 / 吊销 token 后首次请求返回 401 PW_AUTH_REQUIRED → 清本地 token
+ * 并抛带指引的错误，由 UI 引导用户回到「设备配对」。
  */
 async function http<T>(path: string, init?: RequestInit): Promise<T> {
   const serverUrl = getServerUrl();
-  let pub = (await pwcrypto.getServerKey(serverUrl)).key;
-  for (let attempt = 0; ; attempt++) {
-    const enc = await pwcrypto.buildEncryptedRequest(pub, init?.body as string | undefined);
-    const resp = await fetch(serverUrl + path, {
-      ...init,
-      body: enc.body,
-      headers: { "Content-Type": "application/json", ...enc.headers },
-    });
-    const text = await resp.text().catch(() => "");
-    const plain = (await pwcrypto.openEnvelope(enc.aes, text)) ?? text;
-    if (!resp.ok) {
-      if (plain.includes("PW_KEY_UNWRAP_FAILED") && attempt === 0) {
-        pwcrypto.clearServerKeyCache();
-        pub = (await pwcrypto.getServerKey(serverUrl, true)).key;
-        continue;
-      }
-      throw new Error(`HTTP ${resp.status}${plain ? `: ${plain.slice(0, 200)}` : ""}`);
-    }
-    return JSON.parse(plain) as T;
+  const token = getToken();
+  if (!token) {
+    throw new Error("设备未配对：请到 设置→通用设置「设备配对」输入服务端启动日志中的配对码");
   }
+  const resp = await fetch(serverUrl + path, {
+    ...init,
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+      ...(init?.headers ?? {}),
+    },
+  });
+  const text = await resp.text().catch(() => "");
+  if (!resp.ok) {
+    if (resp.status === 401 && text.includes("PW_AUTH_REQUIRED")) {
+      clearToken();
+      throw new Error("设备未配对：请到 设置→通用设置「设备配对」输入服务端启动日志中的配对码");
+    }
+    throw new Error(`HTTP ${resp.status}${text ? `: ${text.slice(0, 200)}` : ""}`);
+  }
+  if (text.startsWith("<")) {
+    // 典型场景：后端地址误填成了网页（vite/网关返回 HTML），提前给出可读错误
+    throw new Error("服务端返回的不是 JSON（后端接口地址疑似填错，当前指向网页）");
+  }
+  return JSON.parse(text) as T;
+}
+
+/** 设备配对：提交配对码 → 拿到 bearer → 持久化。 */
+export async function pairServer(code: string): Promise<void> {
+  const serverUrl = getServerUrl();
+  const resp = await fetch(serverUrl + "/api/pair", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      code: code.trim(),
+      name: `plan-watch@${navigator.platform || "desktop"}`,
+    }),
+  });
+  const text = await resp.text().catch(() => "");
+  if (!resp.ok) {
+    if (text.includes("PW_PAIR_LOCKED")) {
+      throw new Error("配对尝试过于频繁，服务端已临时锁定，请稍后再试");
+    }
+    if (text.includes("PW_PAIR_BAD")) {
+      throw new Error("配对码错误（请核对服务端启动日志中的 8 位数字）");
+    }
+    throw new Error(`HTTP ${resp.status}${text ? `: ${text.slice(0, 200)}` : ""}`);
+  }
+  const { token } = JSON.parse(text) as { token: string };
+  setToken(token);
 }
 
 export async function getConfig(): Promise<AppConfig> {
   if (isServerMode()) return http<AppConfig>("/api/config");
+  return getConfigLocal();
+}
+
+/** 本地模式直取（Tauri IPC）；服务端未配对时作为设置页的兜底渲染基底 */
+export async function getConfigLocal(): Promise<AppConfig> {
   return invoke<AppConfig>("get_config");
 }
 

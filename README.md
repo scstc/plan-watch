@@ -94,9 +94,11 @@ mvn -f server/pom.xml package
 桌面应用 → 设置 → 通用设置 → **后端接口地址** 填 `http://<服务端IP>:8787` 保存，
 标题栏出现「服务端」徽标即切换成功（清空地址回到本地查询）。
 
-> 安全提示：app↔服务端接口数据已默认启用**端到端加密**（见下文「接口加密」），网络上不再出现明文
-> API Key；但服务端**没有客户端鉴权**，任何拿到公钥的人都能调用接口，暴露公网请自行加反向代理鉴权。
-> `data/config.json`（含明文 API Key）与 `data/server.key`（私钥）在服务端磁盘上，注意目录权限。
+> 安全提示：app↔服务端接口已默认启用**启动配对码 + Bearer token 鉴权**（见下文「配对」）。
+> 服务端首次启动生成 8 位数字配对码（启动日志打印），客户端输入后获得长期 Bearer token，
+> 后续每个请求带 `Authorization: Bearer <token>`。`GET /api/config` **不下发**供应商 API Key
+> （客户端只拿到 `…末4位` 预览，查询全部由服务端代理）。`data/config.json`（明文 API Key）、
+> `data/pair.code`（配对码）、`data/tokens.json`（已签发 token）都在服务端磁盘上，注意目录权限。
 
 ## 配置文件
 
@@ -174,42 +176,49 @@ mvn -f server/pom.xml package
 
 | 方法 | 路径 | 说明 |
 |---|---|---|
-| GET | `/api/config` | 读取配置 |
-| PUT | `/api/config` | 保存配置（服务端会做钳制/去重规范化） |
+| GET | `/api/config` | 读取配置（**脱敏视图**：`apiKey` 恒空，附 `apiKeyMasked` 末4位预览） |
+| PUT | `/api/config` | 保存配置（服务端会做钳制/去重规范化；`apiKey` 留空 = 沿用已存值） |
 | GET | `/api/statuses` | 全部账号最近一次查询状态（按配置顺序） |
 | POST | `/api/refresh` | 立即刷新全部启用账号（同步完成后返回最新状态） |
 | POST | `/api/test` | 临时测试一个账号（body 为单个 account 对象，不落盘） |
-| GET | `/api/pubkey` | 服务端加密公钥（明文引导接口，加密豁免） |
+| POST | `/api/pair` | 设备配对：body `{code, name}` → `{token, pairedAt}`，鉴权豁免 |
 
-### 接口加密（v0.6+，默认开启）
+### 配对（v0.6+，默认开启）
 
-app 与服务端之间的全部 `/api/*` 接口数据走**公私钥混合加密**（防网络嗅探明文 API Key）：
+服务端首次启动生成 8 位数字**配对码**（启动日志打印），客户端用它换取长期 Bearer token，
+此后每个请求带 `Authorization: Bearer <token>`：
 
-- **协议 v1**：客户端每次请求生成一次性 AES-256-GCM 密钥，用服务端 RSA-2048 公钥
-  OAEP(SHA-256) 包裹后放请求头 `X-PW-Key`；请求体/响应体均为信封 `{"iv","data"}`（base64）。
-- **密钥管理**：服务端首次启动自动在 `<数据目录>/server.key` 生成密钥对（PEM PKCS#8，600 权限），
-  启动日志打印公钥指纹（sha256）；客户端首次连接经 `GET /api/pubkey` 获取公钥并按服务端地址缓存
-  （TOFU），服务端换钥后客户端一次失败即自动重取自愈。
-- **指纹校对**：设置页展示已缓存公钥指纹前 16 位，可与 `java -jar … 2>&1 | grep 指纹` 的启动日志核对。
-- **配置项**：`planwatch.crypto.required`（默认 `true`，拒绝未加密请求，防降级嗅探；
-  `false` 兼容 curl 直调/旧版客户端，此时明文可用）、`planwatch.crypto.key-file`（自定义密钥路径）。
+1. **拿码**：服务端启动日志有一行 `配对码: 1234-5678`（持久化于 `data/pair.code`，
+   重启不变；删除该文件重启即作废旧码、签发新码）
+2. **配对**：客户端 设置→通用设置→「设备配对」输入 8 位数字（带不带 dash 都可以）点「配对」，
+   拿到一个长期 token（持久化于 webview localStorage `pw-token:<url>`）
+3. **管理**：吊销设备 = 编辑 `<数据目录>/tokens.json` 删掉对应记录（mtime 热加载，无需重启）；
+   客户端清了浏览器数据目录 = 新身份，需重新配对
+4. **多设备**：配对码不强制一次性使用，多台设备可共用同一码各自换取独立 token
 
-已知局限（设计取舍）：TOFU 首连可被中间人替换公钥（可用指纹核对缓解，根治需 TLS/带外分发）；
-无前向保密（录制流量 + 日后窃取 `server.key` 可回溯解密）；无防重放、无客户端鉴权（加密≠认证）。
+协议：响应头 `Authorization: Bearer <base64url(32字节)>`。错误码：`401 PW_AUTH_REQUIRED`
+（缺/无效 token）、`401 PW_PAIR_BAD`（错误码）、`429 PW_PAIR_LOCKED`（连续 5 次错误码锁定 5 分钟）。
 
-### curl 直调（需关闭强制加密）
+### curl 直调（先拿 Bearer token）
 
 ```bash
-# 以下示例需以 --planwatch.crypto.required=false 启动服务端（默认开启时返回 400 PW_CRYPTO_REQUIRED）
-curl http://127.0.0.1:8787/api/statuses
+# 先读服务端启动日志拿到配对码（例：1234-5678），换长期 token
+TOKEN=$(curl -s -X POST http://127.0.0.1:8787/api/pair \
+  -H "Content-Type: application/json" \
+  -d '{"code":"12345678","name":"curl-smoke"}' | jq -r .token)
+
+# 之后每个请求带 Authorization 即可
+curl -H "Authorization: Bearer $TOKEN" http://127.0.0.1:8787/api/statuses
 
 # 示例：新增/修改配置（整份提交）
 curl -X PUT http://127.0.0.1:8787/api/config \
+  -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
   -d @config.json
 
 # 示例：测试一把 Key 是否有效
 curl -X POST http://127.0.0.1:8787/api/test \
+  -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
   -d '{"id":"t","name":"t","provider":"zhipu","region":"cn","apiKey":"你的KEY","enabled":true}'
 ```
@@ -250,7 +259,7 @@ npm run typecheck          # 前端类型检查
 cargo test --manifest-path app/src-tauri/Cargo.toml
 
 # 服务端
-mvn -f server/pom.xml test         # 9 个解析单测
+mvn -f server/pom.xml test         # 24 个单测（配对 + 解析）
 mvn -f server/pom.xml spring-boot:run
 ```
 

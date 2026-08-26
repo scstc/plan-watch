@@ -24,16 +24,21 @@ export default function SettingsApp() {
       try {
         // 先尝试获取配置
         let cfg: AppConfig;
+        let unpaired = false;
         try {
           cfg = await api.getConfig();
         } catch (configError) {
-          // 如果是服务端模式配置错误，自动切换回本地模式
-          if (api.isServerMode()) {
+          if (!api.isServerMode()) throw configError;
+          if (String(configError).includes("PW_AUTH_REQUIRED")) {
+            // 设备未配对：保留后端配置，用本地配置兜底渲染设置页（配对入口在通用设置）
+            console.warn("设备未配对，等待配对:", configError);
+            cfg = await api.getConfigLocal();
+            unpaired = true;
+          } else {
+            // 后端不可达等配置错误，自动切换回本地模式
             console.warn("后端连接失败，切换到本地模式:", configError);
             api.setServerUrl(""); // 清除错误的配置
-            cfg = await api.getConfig(); // 使用本地命令
-          } else {
-            throw configError;
+            cfg = await api.getConfigLocal(); // 使用本地命令
           }
         }
 
@@ -50,7 +55,7 @@ export default function SettingsApp() {
 
         if (alive) {
           setConfig(cfg);
-          setLoadError(null);
+          setLoadError(unpaired ? "设备未配对：请在下方「通用设置 → 设备配对」输入服务端启动日志中的配对码" : null);
         }
       } catch (e) {
         if (alive) setLoadError(String(e));
@@ -230,7 +235,7 @@ export default function SettingsApp() {
       </section>
 
       <footer className="muted small">
-        关闭窗口即隐藏到托盘继续监控；额度变化看浮动列表。plan-watch v0.4.0
+        关闭窗口即隐藏到托盘继续监控；额度变化看浮动列表。plan-watch v0.6.0
       </footer>
     </div>
   );

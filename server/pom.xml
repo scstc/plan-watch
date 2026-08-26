@@ -13,7 +13,7 @@
 
   <groupId>com.planwatch</groupId>
   <artifactId>plan-watch-server</artifactId>
-  <version>0.5.0</version>
+  <version>0.6.0</version>
   <name>plan-watch-server</name>
   <description>plan-watch backend: coding-plan quota API (same contract as the Tauri commands)</description>
 
@@ -29,12 +29,6 @@
     <dependency>
       <groupId>org.springframework.boot</groupId>
       <artifactId>spring-boot-starter-test</artifactId>
-      <scope>test</scope>
-    </dependency>
-    <!-- Boot 4 模块化拆分：@AutoConfigureMockMvc 在 webmvc-test 模块 -->
-    <dependency>
-      <groupId>org.springframework.boot</groupId>
-      <artifactId>spring-boot-starter-webmvc-test</artifactId>
       <scope>test</scope>
     </dependency>
   </dependencies>

@@ -26,7 +26,12 @@ export function AccountForm({ initial, onSave, onCancel }: Props) {
   const [testError, setTestError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
-  const valid = name.trim().length > 0 && apiKey.trim().length > 0;
+  // 服务端模式编辑既有账号：真实 Key 不在本机（GET 已脱敏），留空 = 沿用服务端已存 Key
+  const keepExistingKey = initial != null && !!initial.apiKeyMasked && initial.apiKey === "";
+
+  const valid = name.trim().length > 0 && (apiKey.trim().length > 0 || keepExistingKey);
+  // 「测试连接」需要完整 Key；留空沿用模式下本机没有，只能重新输入后再测
+  const testable = apiKey.trim().length > 0;
 
   function buildAccount(): Account {
     return {
@@ -101,7 +106,11 @@ export function AccountForm({ initial, onSave, onCancel }: Props) {
               type={showKey ? "text" : "password"}
               value={apiKey}
               onChange={(e) => setApiKey(e.target.value)}
-              placeholder={KEY_PLACEHOLDER[provider]}
+              placeholder={
+                keepExistingKey
+                  ? `留空保持不变（当前 ${initial!.apiKeyMasked}）`
+                  : KEY_PLACEHOLDER[provider]
+              }
               autoComplete="off"
               spellCheck={false}
             />
@@ -134,7 +143,12 @@ export function AccountForm({ initial, onSave, onCancel }: Props) {
       </div>
 
       <div className="form-actions">
-        <button className="ghost" onClick={handleTest} disabled={!valid || testing}>
+        <button
+          className="ghost"
+          onClick={handleTest}
+          disabled={!valid || !testable || testing}
+          title={keepExistingKey && !testable ? "留空沿用模式下本机没有完整 Key，重新输入后才能测试" : undefined}
+        >
           测试连接
         </button>
         <span className="spacer" />

@@ -55,8 +55,9 @@ export function AccountCard({ account, status, onEdit, onDelete, onToggle }: Pro
         </div>
       </div>
 
-      {/* 脱敏展示；不要放 title 之类携带完整 Key 的属性 */}
-      <div className="account-key">{maskKey(account.apiKey)}</div>
+      {/* 脱敏展示；不要放 title 之类携带完整 Key 的属性。
+          服务端模式优先用服务端下发的预览（本地已无完整 Key） */}
+      <div className="account-key">{account.apiKeyMasked ?? maskKey(account.apiKey)}</div>
 
       <div className="account-body">
         {!account.enabled ? (

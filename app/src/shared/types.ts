@@ -8,7 +8,10 @@ export interface Account {
   name: string;
   provider: ProviderKind;
   region: Region;
+  /** 服务端模式恒为空串（服务端不下发真实密钥）；本地模式为完整 Key */
   apiKey: string;
+  /** 服务端模式的脱敏预览（…+末4位）；本地模式无此字段 */
+  apiKeyMasked?: string;
   enabled: boolean;
 }
 
