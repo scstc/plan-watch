@@ -1,7 +1,7 @@
 {
   "name": "plan-watch",
   "private": true,
-  "version": "0.7.0",
+  "version": "2026.8.1",
   "description": "AI coding-plan quota in your tray",
   "type": "module",
   "scripts": {

@@ -1,6 +1,6 @@
 [package]
 name = "plan-watch"
-version = "0.7.0"
+version = "2026.8.1"
 description = "AI coding-plan quota in your tray"
 authors = ["Simple"]
 license = "MIT"
