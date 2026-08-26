@@ -11,14 +11,33 @@ MiniMax、智谱 GLM，多账号多供应商，额度条 + 重置倒计时 + 低
 ## 组成与架构
 
 ```mermaid
-flowchart LR
-    desktop["桌面应用 app/<br/>Tauri 2 · React + Rust"]
-    server["服务端 server/<br/>Spring Boot<br/>(可选部署)"]
-    provider["供应商开放平台<br/>MiniMax · 智谱 GLM"]
+flowchart TB
+    subgraph Client["🖥️ 客户端（本机）"]
+        direction LR
+        desktop["<b>桌面应用 app/</b><br/>Tauri 2 · React + Rust<br/>浮动列表 + 托盘 + 设置窗"]
+    end
 
-    desktop -- "本地查询（默认）" --> provider
-    desktop -- "服务端模式<br/>Bearer token" --> server
-    server  -- "定时代理查询" --> provider
+    subgraph Server["🗄️ 服务端（可选部署）"]
+        direction LR
+        server["<b>服务端 server/</b><br/>Spring Boot · JDK 26<br/>Bearer Token · 配对码"]
+    end
+
+    subgraph Cloud["☁️ 供应商开放平台"]
+        direction LR
+        providers["<b>AI 编程套餐 API</b><br/>MiniMax · 智谱 GLM<br/>5h / 周 额度窗口"]
+    end
+
+    desktop -. "<b>本地查询</b><br/>（默认）" .-> providers
+    desktop -- "<b>服务端模式</b><br/>HTTP + Bearer token" --> server
+    server -- "<b>定时代理查询</b>" --> providers
+
+    classDef clientStyle fill:#ddf4ff,stroke:#0969da,color:#0a3069
+    classDef serverStyle fill:#dafbe1,stroke:#1a7f37,color:#0a3069
+    classDef cloudStyle fill:#fff8c5,stroke:#9a6700,color:#573a00
+
+    class desktop clientStyle
+    class server serverStyle
+    class providers cloudStyle
 ```
 
 - **桌面应用**（`app/`）：独立可用，直接在本地查询供应商接口
