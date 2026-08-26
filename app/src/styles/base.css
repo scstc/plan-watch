@@ -212,6 +212,17 @@ button.toggle {
   background: linear-gradient(90deg, var(--ok) 0%, var(--ok) 45%, var(--warn) 75%, var(--crit) 100%);
 }
 
+/* 整条已接近/达到上限：通体上色（不靠末端渐变） */
+/* 80% 起步 → 红色，100% → 通体红，50% 起步 → 黄色，<50% → 绿色 */
+.tier-bar > .grad.is-warn,
+.fl-bar > .grad.is-warn {
+  background: var(--warn);
+}
+.tier-bar > .grad.is-crit,
+.fl-bar > .grad.is-crit {
+  background: var(--crit);
+}
+
 /* 无限额窗口：满条中性斜纹 */
 .tier-bar > .inf,
 .fl-bar > .inf {

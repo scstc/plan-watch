@@ -65,3 +65,14 @@ export const ERROR_KIND_LABEL: Record<string, string> = {
   business: "接口错误",
   network: "网络失败",
 };
+
+/**
+ * 进度条配色档位：<50% 走默认绿→红渐变；≥50% 黄色；≥80% 红色。
+ * 返回 "" 时让默认 .grad 渐变生效；否则整条通体上色（≤100% 时仍可能不满条，但已有部分是单色）。
+ * 100% 的红线会填满整条——这就是"完全变成红色"。
+ */
+export function barStateClass(usedPercent: number): "is-crit" | "is-warn" | "" {
+  if (usedPercent >= 80) return "is-crit";
+  if (usedPercent >= 50) return "is-warn";
+  return "";
+}

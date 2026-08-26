@@ -4,6 +4,7 @@ import {
   ERROR_KIND_LABEL,
   PROVIDER_LABEL,
   REGION_LABEL,
+  barStateClass,
   fmtClock,
   fmtNum,
   fmtPercent,
@@ -77,7 +78,7 @@ export function AccountCard({ account, status, onEdit, onDelete, onToggle }: Pro
                         <div className="inf" />
                       ) : (
                         <div
-                          className="grad"
+                          className={`grad ${barStateClass(t.usedPercent)}`}
                           style={{ width: `${Math.max(0, Math.min(100, t.usedPercent))}%` }}
                         />
                       )}

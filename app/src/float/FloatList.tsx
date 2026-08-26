@@ -4,7 +4,7 @@ import { LogicalSize, PhysicalPosition } from "@tauri-apps/api/dpi";
 import * as api from "../shared/api";
 import { accountsOf, useQuotas } from "../shared/useQuotas";
 import type { Account, AccountStatus, QuotaTier } from "../shared/types";
-import { ERROR_KIND_LABEL, fmtCountdown, fmtPercent, fmtReset } from "../shared/format";
+import { ERROR_KIND_LABEL, fmtCountdown, fmtPercent, fmtReset, barStateClass } from "../shared/format";
 
 /** 首次放置标记：之后的位置交给 window-state 插件持久化 */
 const PLACED_KEY = "pw-float-placed";
@@ -44,7 +44,7 @@ function BarRow({ tier }: { tier: QuotaTier }) {
           <div className="inf" />
         ) : (
           <div
-            className="grad"
+            className={`grad ${barStateClass(tier.usedPercent)}`}
             style={{ width: `${Math.max(0, Math.min(100, tier.usedPercent))}%` }}
           />
         )}
