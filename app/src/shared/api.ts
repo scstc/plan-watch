@@ -86,11 +86,13 @@ async function http<T>(path: string, init?: RequestInit): Promise<T> {
 /** 设备配对：提交配对码 → 拿到 bearer → 持久化。 */
 export async function pairServer(code: string): Promise<void> {
   const serverUrl = getServerUrl();
+  // 配对码按 UI 视觉格式（1234-5678）发送；服务端也会自行去 dash
+  const dashed = code.trim().replace(/^(\d{4})(\d{4})$/, "$1-$2");
   const resp = await fetch(serverUrl + "/api/pair", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      code: code.trim(),
+      code: dashed,
       name: `plan-watch@${navigator.platform || "desktop"}`,
     }),
   });

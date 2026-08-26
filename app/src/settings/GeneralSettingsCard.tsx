@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
 import * as api from "../shared/api";
 import type { AppConfig } from "../shared/types";
 
@@ -6,8 +6,8 @@ import type { AppConfig } from "../shared/types";
 const clamp = (v: number, lo: number, hi: number): number =>
   Number.isNaN(v) ? lo : Math.max(lo, Math.min(hi, Math.round(v)));
 
-/** 配对码：服务端打印的「1234-5678」格式，分两段输入 */
-const PAIR_SEG_LEN = 4;
+/** 配对码位数（服务端打印的 8 位数字） */
+const PAIR_LEN = 8;
 
 interface Props {
   config: AppConfig;
@@ -17,7 +17,7 @@ interface Props {
   onSaved: () => void;
 }
 
-/** 配对码两段输入：4 + 4，中间静态横杠。仅数字，满位自动跳下一格；Backspace 到 0 回退到上一格 */
+/** 配对码输入：8 个独立 1 位方框。仅数字，满位自动跳下一格；Backspace 到 0 回退到上一格 */
 function PairCodeInput({
   value,
   onChange,
@@ -25,66 +25,84 @@ function PairCodeInput({
   value: string;
   onChange: (next: string) => void;
 }) {
-  const refA = useRef<HTMLInputElement>(null);
-  const refB = useRef<HTMLInputElement>(null);
-  const [a, b] = [
-    value.slice(0, PAIR_SEG_LEN).padEnd(PAIR_SEG_LEN, " "),
-    value.slice(PAIR_SEG_LEN, PAIR_SEG_LEN * 2),
-  ];
+  const refs = useRef<Array<HTMLInputElement | null>>([]);
 
-  const setSeg = (idx: 0 | 1, seg: string) => {
-    const digits = seg.replace(/\D/g, "").slice(0, PAIR_SEG_LEN);
-    const next = idx === 0 ? digits + value.slice(PAIR_SEG_LEN) : value.slice(0, PAIR_SEG_LEN) + digits;
-    onChange(next);
-    return digits;
+  const setDigit = (idx: number, ch: string) => {
+    const digit = ch.replace(/\D/g, "").slice(-1);
+    if (!digit) return;
+    const arr = value.padEnd(PAIR_LEN, " ").split("");
+    arr[idx] = digit;
+    onChange(arr.join("").replace(/ /g, ""));
+    if (idx < PAIR_LEN - 1) refs.current[idx + 1]?.focus();
   };
 
-  const onSegInput = (idx: 0 | 1) => (e: React.ChangeEvent<HTMLInputElement>) => {
-    const digits = setSeg(idx, e.target.value);
-    if (digits.length === PAIR_SEG_LEN) {
-      (idx === 0 ? refB : refA).current?.focus();
-    }
+  const onInput = (idx: number) => (e: React.ChangeEvent<HTMLInputElement>) => {
+    setDigit(idx, e.target.value);
+    // 清空 input.value（受控 value 是空字符串 " "），让下一次敲键能正常触发 onChange
+    e.target.value = "";
   };
 
-  const onSegKeyDown = (idx: 0 | 1) => (e: React.KeyboardEvent<HTMLInputElement>) => {
-    const el = e.currentTarget;
-    if (e.key === "Backspace" && el.value.length === 0) {
+  const onKeyDown = (idx: number) => (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Backspace") {
       e.preventDefault();
-      (idx === 0 ? refA : refB).current?.focus();
+      if (value[idx]) {
+        // 当前格有数字：清空它
+        const arr = value.padEnd(PAIR_LEN, " ").split("");
+        arr[idx] = " ";
+        onChange(arr.join("").replace(/ /g, ""));
+      } else if (idx > 0) {
+        // 当前格已空：回退并清空上一格
+        refs.current[idx - 1]?.focus();
+        const arr = value.padEnd(PAIR_LEN, " ").split("");
+        arr[idx - 1] = " ";
+        onChange(arr.join("").replace(/ /g, ""));
+      }
+    } else if (e.key === "ArrowLeft" && idx > 0) {
+      e.preventDefault();
+      refs.current[idx - 1]?.focus();
+    } else if (e.key === "ArrowRight" && idx < PAIR_LEN - 1) {
+      e.preventDefault();
+      refs.current[idx + 1]?.focus();
     }
   };
 
   return (
     <div className="pair-code" aria-label="配对码">
-      <input
-        ref={refA}
-        type="text"
-        inputMode="numeric"
-        pattern="[0-9]*"
-        maxLength={PAIR_SEG_LEN}
-        value={a}
-        onChange={onSegInput(0)}
-        onKeyDown={onSegKeyDown(0)}
-        onFocus={(e) => e.currentTarget.select()}
-        autoComplete="off"
-        spellCheck={false}
-        aria-label="配对码前 4 位"
-      />
-      <span className="pair-code-sep" aria-hidden="true">-</span>
-      <input
-        ref={refB}
-        type="text"
-        inputMode="numeric"
-        pattern="[0-9]*"
-        maxLength={PAIR_SEG_LEN}
-        value={b}
-        onChange={onSegInput(1)}
-        onKeyDown={onSegKeyDown(1)}
-        onFocus={(e) => e.currentTarget.select()}
-        autoComplete="off"
-        spellCheck={false}
-        aria-label="配对码后 4 位"
-      />
+      {Array.from({ length: PAIR_LEN }, (_, i) => {
+        const ch = value[i] ?? "";
+        // 中点分隔符：1234 - 5678
+        const isMid = i === PAIR_LEN / 2;
+        return (
+          <Fragment key={i}>
+            {isMid && (
+              <span className="pair-code-sep" aria-hidden="true">-</span>
+            )}
+            <input
+              ref={(el) => {
+                refs.current[i] = el;
+              }}
+              type="text"
+              inputMode="numeric"
+              pattern="[0-9]*"
+              maxLength={1}
+              value={ch}
+              onChange={onInput(i)}
+              onKeyDown={onKeyDown(i)}
+              onFocus={(e) => e.currentTarget.select()}
+              onPaste={(e) => {
+                const pasted = e.clipboardData.getData("text").replace(/\D/g, "").slice(0, PAIR_LEN);
+                if (!pasted) return;
+                e.preventDefault();
+                onChange((value + pasted).slice(0, PAIR_LEN));
+                refs.current[Math.min(pasted.length, PAIR_LEN - 1)]?.focus();
+              }}
+              autoComplete="off"
+              spellCheck={false}
+              aria-label={`配对码第 ${i + 1} 位`}
+            />
+          </Fragment>
+        );
+      })}
     </div>
   );
 }
@@ -188,7 +206,13 @@ export function GeneralSettingsCard({ config, persist, onSaved }: Props) {
           后端接口地址（填了走服务端取数，留空使用本地查询）
           <input
             value={serverUrl}
-            onChange={(e) => setServerUrlDraft(e.target.value)}
+            onChange={(e) => {
+              const next = e.target.value;
+              setServerUrlDraft(next);
+              // 即时持久化：避免「填完地址还没点保存就点配对」导致请求发到旧地址
+              api.setServerUrl(next);
+              setTokenPresent(api.hasToken());
+            }}
             placeholder="http://192.168.1.100:8787"
             spellCheck={false}
           />
