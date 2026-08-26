@@ -217,26 +217,35 @@ h3 {
   grid-template-columns: 2fr 1fr 1fr;
 }
 
-/* 配对码两段输入：4 + 4，中间静态横杠 */
+/* 配对码 8 个独立 1 位方框：不换行，避免被父容器挤折行 */
 .pair-code {
-  display: inline-flex;
+  display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 4px;
+  flex-wrap: nowrap;
+  width: max-content;
+  max-width: 100%;
 }
 
 .pair-code input {
-  width: 56px;
-  padding: 6px 0;
+  width: 28px;
+  height: 32px;
+  padding: 0;
   text-align: center;
-  letter-spacing: 2px;
   font-variant-numeric: tabular-nums;
   font-family: ui-monospace, Consolas, monospace;
+  font-size: 16px;
+  line-height: 1;
+  flex: 0 0 auto;
 }
 
 .pair-code-sep {
   color: var(--muted);
   font-family: ui-monospace, Consolas, monospace;
+  font-size: 16px;
+  line-height: 1;
   user-select: none;
+  flex: 0 0 auto;
 }
 
 footer {
