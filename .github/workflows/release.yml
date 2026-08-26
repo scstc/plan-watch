@@ -1,4 +1,5 @@
-# 打 tag（v*）触发：三平台桌面安装包 + 服务端 jar，全部挂到 GitHub Draft Release
+# 打 tag（v*）触发：桌面安装包（Windows + macOS Apple Silicon）+ 服务端 jar，全部挂到 GitHub Draft Release
+# macOS Intel 已下架（macos-13 即将被 GitHub 移除；个人项目少有 Intel 用户，节省 7 分钟/构建）
 # 产物未签名/未公证（个人项目够用；要分发给别人再补签名与 updater）
 # 本地触发：git tag v0.4.0 && git push origin v0.4.0
 name: Release
@@ -17,13 +18,11 @@ jobs:
       fail-fast: false
       matrix:
         settings:
-          # 每个 runner 构建本机架构：windows=x64，macos-latest=Apple Silicon，macos-13=Intel
+          # 每个 runner 构建本机架构：windows=x64，macos-latest=Apple Silicon
           - label: Windows x64
             os: windows-latest
           - label: macOS Apple Silicon
             os: macos-latest
-          - label: macOS Intel
-            os: macos-13
     runs-on: ${{ matrix.settings.os }}
     steps:
       - uses: actions/checkout@v4
