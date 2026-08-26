@@ -10,17 +10,15 @@ MiniMax、智谱 GLM，多账号多供应商，额度条 + 重置倒计时 + 低
 
 ## 组成与架构
 
-```
-┌─────────────────┐   本地查询（默认）    ┌──────────────────┐
-│  桌面应用 app/    │ ─────────────────── │  供应商开放平台     │
-│  Tauri 2         │                      │  MiniMax / 智谱    │
-│  React + Rust    │   服务端模式（可选）   └──────────────────┘
-│                 │ ──────┐                      ▲
-└─────────────────┘       ▼                      │
-                    ┌──────────────┐  定时代理查询 │
-                    │ 服务端 server/ │ ────────────┘
-                    │ Spring Boot  │
-                    └──────────────┘
+```mermaid
+flowchart LR
+    desktop["桌面应用 app/<br/>Tauri 2 · React + Rust"]
+    server["服务端 server/<br/>Spring Boot<br/>(可选部署)"]
+    provider["供应商开放平台<br/>MiniMax · 智谱 GLM"]
+
+    desktop -- "本地查询（默认）" --> provider
+    desktop -- "服务端模式<br/>Bearer token" --> server
+    server  -- "定时代理查询" --> provider
 ```
 
 - **桌面应用**（`app/`）：独立可用，直接在本地查询供应商接口
