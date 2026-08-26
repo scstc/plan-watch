@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <!--
+      macOS 14+ Local Network Privacy：未声明此 key 时，系统会静默拒掉对
+      192.168.* / 10.* / 172.16-31.* 等 RFC1918 网段的出站请求，
+      reqwest::send() 直接返回 "send: error sending request for url"。
+      描述会在首次访问本地网络时弹给用户看。
+    -->
+    <key>NSLocalNetworkUsageDescription</key>
+    <string>plan-watch 需要访问本地网络以连接您配置的后端服务（同步 / 查询账号余额）。</string>
+</dict>
+</plist>

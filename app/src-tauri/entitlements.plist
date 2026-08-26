@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <!--
+      出站 TCP 客户端权限，pair / config / statuses 等所有走 reqwest::Client
+      的请求都依赖它。Info.plist 里同时声明 NSLocalNetworkUsageDescription
+      才会在首次访问 RFC1918 地址时弹出"允许本地网络"对话框。
+    -->
+    <key>com.apple.security.network.client</key>
+    <true/>
+</dict>
+</plist>
