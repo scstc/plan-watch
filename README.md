@@ -89,10 +89,26 @@ mvn -f server/pom.xml package
 # 产物：server/target/plan-watch-server.jar（测试随 package 一并执行）
 ```
 
+### Docker 部署（compose）
+
+```bash
+git clone https://github.com/scstc/plan-watch.git && cd plan-watch
+docker compose up -d --build
+```
+
+- 监听 `http://<主机IP>:8080`，数据持久化在 `./server/data/`
+  （`config.json` / `pair.code` / `tokens.json`，升级重建容器不丢）
+- 拿配对码：`docker logs plan-watch-server 2>&1 | grep 配对码`
+- 升级到新版本：`git pull && docker compose up -d --build`
+
+> 已知问题：compose 的 healthcheck 探测 `/actuator/health`，项目未引入 actuator，
+> 容器会一直显示 `unhealthy` —— 不影响功能，后续版本修复。
+
 ### 客户端接入
 
-桌面应用 → 设置 → 通用设置 → **后端接口地址** 填 `http://<服务端IP>:8787` 保存，
-标题栏出现「服务端」徽标即切换成功（清空地址回到本地查询）。
+桌面应用 → 设置 → 通用设置 → **后端接口地址** 填 `http://<服务端IP>:8787`（Docker 部署为 `:8080`）保存。
+首次接入需**配对**：在该页「设备配对」输入服务端启动日志里的 8 位配对码（见下文「配对」），
+配对成功后标题栏出现「服务端」徽标即切换完成（清空地址回到本地查询）。
 
 > 安全提示：app↔服务端接口已默认启用**启动配对码 + Bearer token 鉴权**（见下文「配对」）。
 > 服务端首次启动生成 8 位数字配对码（启动日志打印），客户端输入后获得长期 Bearer token，
@@ -196,8 +212,10 @@ mvn -f server/pom.xml package
    客户端清了浏览器数据目录 = 新身份，需重新配对
 4. **多设备**：配对码不强制一次性使用，多台设备可共用同一码各自换取独立 token
 
-协议：响应头 `Authorization: Bearer <base64url(32字节)>`。错误码：`401 PW_AUTH_REQUIRED`
-（缺/无效 token）、`401 PW_PAIR_BAD`（错误码）、`429 PW_PAIR_LOCKED`（连续 5 次错误码锁定 5 分钟）。
+协议：token 为 `base64url(32 字节随机数)`，配对成功由响应体 `{token, pairedAt}` 返回，
+此后每个请求带请求头 `Authorization: Bearer <token>`。错误码：`401 PW_AUTH_REQUIRED`
+（缺/无效 token）、`401 PW_PAIR_BAD`（配对码错误）、`401 PW_PAIR_LOCKED`
+（连续 5 次错误码锁定 5 分钟）。
 
 ### curl 直调（先拿 Bearer token）
 
