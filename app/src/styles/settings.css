@@ -217,6 +217,28 @@ h3 {
   grid-template-columns: 2fr 1fr 1fr;
 }
 
+/* 配对码两段输入：4 + 4，中间静态横杠 */
+.pair-code {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.pair-code input {
+  width: 56px;
+  padding: 6px 0;
+  text-align: center;
+  letter-spacing: 2px;
+  font-variant-numeric: tabular-nums;
+  font-family: ui-monospace, Consolas, monospace;
+}
+
+.pair-code-sep {
+  color: var(--muted);
+  font-family: ui-monospace, Consolas, monospace;
+  user-select: none;
+}
+
 footer {
   text-align: center;
 }

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import * as api from "../shared/api";
 import type { AppConfig } from "../shared/types";
 
@@ -6,12 +6,87 @@ import type { AppConfig } from "../shared/types";
 const clamp = (v: number, lo: number, hi: number): number =>
   Number.isNaN(v) ? lo : Math.max(lo, Math.min(hi, Math.round(v)));
 
+/** 配对码：服务端打印的「1234-5678」格式，分两段输入 */
+const PAIR_SEG_LEN = 4;
+
 interface Props {
   config: AppConfig;
   /** 保存配置（父层负责乐观更新/回滚/错误展示） */
   persist: (next: AppConfig) => Promise<void>;
   /** 保存完成后的回调（数据源可能切换，父层需要重载） */
   onSaved: () => void;
+}
+
+/** 配对码两段输入：4 + 4，中间静态横杠。仅数字，满位自动跳下一格；Backspace 到 0 回退到上一格 */
+function PairCodeInput({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (next: string) => void;
+}) {
+  const refA = useRef<HTMLInputElement>(null);
+  const refB = useRef<HTMLInputElement>(null);
+  const [a, b] = [
+    value.slice(0, PAIR_SEG_LEN).padEnd(PAIR_SEG_LEN, " "),
+    value.slice(PAIR_SEG_LEN, PAIR_SEG_LEN * 2),
+  ];
+
+  const setSeg = (idx: 0 | 1, seg: string) => {
+    const digits = seg.replace(/\D/g, "").slice(0, PAIR_SEG_LEN);
+    const next = idx === 0 ? digits + value.slice(PAIR_SEG_LEN) : value.slice(0, PAIR_SEG_LEN) + digits;
+    onChange(next);
+    return digits;
+  };
+
+  const onSegInput = (idx: 0 | 1) => (e: React.ChangeEvent<HTMLInputElement>) => {
+    const digits = setSeg(idx, e.target.value);
+    if (digits.length === PAIR_SEG_LEN) {
+      (idx === 0 ? refB : refA).current?.focus();
+    }
+  };
+
+  const onSegKeyDown = (idx: 0 | 1) => (e: React.KeyboardEvent<HTMLInputElement>) => {
+    const el = e.currentTarget;
+    if (e.key === "Backspace" && el.value.length === 0) {
+      e.preventDefault();
+      (idx === 0 ? refA : refB).current?.focus();
+    }
+  };
+
+  return (
+    <div className="pair-code" aria-label="配对码">
+      <input
+        ref={refA}
+        type="text"
+        inputMode="numeric"
+        pattern="[0-9]*"
+        maxLength={PAIR_SEG_LEN}
+        value={a}
+        onChange={onSegInput(0)}
+        onKeyDown={onSegKeyDown(0)}
+        onFocus={(e) => e.currentTarget.select()}
+        autoComplete="off"
+        spellCheck={false}
+        aria-label="配对码前 4 位"
+      />
+      <span className="pair-code-sep" aria-hidden="true">-</span>
+      <input
+        ref={refB}
+        type="text"
+        inputMode="numeric"
+        pattern="[0-9]*"
+        maxLength={PAIR_SEG_LEN}
+        value={b}
+        onChange={onSegInput(1)}
+        onKeyDown={onSegKeyDown(1)}
+        onFocus={(e) => e.currentTarget.select()}
+        autoComplete="off"
+        spellCheck={false}
+        aria-label="配对码后 4 位"
+      />
+    </div>
+  );
 }
 
 /** 通用设置：刷新间隔 / 低额度阈值 / 后端接口地址 / 设备配对 */
@@ -129,17 +204,7 @@ export function GeneralSettingsCard({ config, persist, onSaved }: Props) {
             {!tokenPresent && (
               <label className="span-2">
                 配对码（服务端启动日志「配对码」行，8 位数字）
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  pattern="[0-9]*"
-                  maxLength={9} /* 允许带 dash */
-                  value={pairCode}
-                  onChange={(e) => setPairCode(e.target.value)}
-                  placeholder="1234-5678"
-                  autoComplete="off"
-                  spellCheck={false}
-                />
+                <PairCodeInput value={pairCode} onChange={setPairCode} />
               </label>
             )}
             <div className="form-actions inline span-3">
