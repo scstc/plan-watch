@@ -236,6 +236,19 @@ export default function SettingsApp() {
 
       <footer className="muted small">
         关闭窗口即隐藏到托盘继续监控；额度变化看浮动列表。plan-watch v0.6.0
+        <span style={{ marginLeft: 12 }}>
+          <button
+            className="danger"
+            onClick={() => {
+              if (confirm("确定要退出 plan-watch 吗？\n（所有监控将停止，下次需要手动重启）")) {
+                void api.quitApp();
+              }
+            }}
+            title="退出应用（托盘右键菜单里也有）"
+          >
+            退出 plan-watch
+          </button>
+        </span>
       </footer>
     </div>
   );

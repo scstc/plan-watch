@@ -1,8 +1,8 @@
-//! 托盘：tooltip、图标与点击交互。
+//! 托盘：tooltip、图标与交互。
 //!
-//! 交互约定（与原生菜单解耦，跨平台一致）：
+//! 交互约定：
 //! - 左键：显示 / 隐藏浮动列表面板
-//! - 右键：打开设置窗口
+//! - 右键：弹出菜单（显示浮动窗 / 打开设置 / 退出）
 //! - 悬停：tooltip 一行一账号摘要
 //!
 //! 图标固定为品牌双色胶囊（左绿右红）；额度状态由浮动列表的
@@ -11,6 +11,7 @@
 
 use std::collections::HashMap;
 
+use tauri::menu::{Menu, MenuEvent, MenuItem, PredefinedMenuItem};
 use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
 use tauri::{AppHandle, Manager};
 use tauri::image::Image;
@@ -21,6 +22,10 @@ use crate::state::AppState;
 use crate::tray_util::nudge_window;
 
 pub const TRAY_ID: &str = "plan-watch";
+
+const MENU_ID_TOGGLE_FLOAT: &str = "toggle_float";
+const MENU_ID_OPEN_SETTINGS: &str = "open_settings";
+const MENU_ID_QUIT: &str = "quit";
 
 /// 32×32 双色胶囊托盘图标（`tools/gen-icons.ps1` 生成）
 mod status_icons {
@@ -122,8 +127,39 @@ pub fn update(app: &AppHandle) {
 pub fn create(app: &AppHandle) -> tauri::Result<()> {
     let (config, statuses) = snapshot(app);
 
+    // 右键菜单：显示浮动 / 打开设置 / 分隔 / 退出
+    let menu = Menu::with_items(
+        app,
+        &[
+            &MenuItem::with_id(
+                app,
+                MENU_ID_TOGGLE_FLOAT,
+                "显示 / 隐藏浮动窗",
+                true,
+                None::<&str>,
+            )?,
+            &MenuItem::with_id(
+                app,
+                MENU_ID_OPEN_SETTINGS,
+                "打开设置",
+                true,
+                None::<&str>,
+            )?,
+            &PredefinedMenuItem::separator(app)?,
+            &MenuItem::with_id(app, MENU_ID_QUIT, "退出 plan-watch", true, None::<&str>)?,
+        ],
+    )?;
+
     let mut builder = TrayIconBuilder::with_id(TRAY_ID)
         .tooltip(build_tooltip(&config, &statuses))
+        .menu(&menu)
+        .show_menu_on_left_click(false)
+        .on_menu_event(|app, event: MenuEvent| match event.id().as_ref() {
+            MENU_ID_TOGGLE_FLOAT => toggle_float(app),
+            MENU_ID_OPEN_SETTINGS => show_settings(app),
+            MENU_ID_QUIT => app.exit(0),
+            _ => {}
+        })
         .on_tray_icon_event(|tray, event| {
             if let TrayIconEvent::Click {
                 button,
@@ -132,11 +168,10 @@ pub fn create(app: &AppHandle) -> tauri::Result<()> {
             } = event
             {
                 let app = tray.app_handle().clone();
-                match button {
-                    MouseButton::Left => toggle_float(&app),
-                    MouseButton::Right => show_settings(&app),
-                    _ => {}
+                if matches!(button, MouseButton::Left) {
+                    toggle_float(&app);
                 }
+                // 右键由 .menu() + show_menu_on_left_click(false) 自动弹出，无需在此处理
             }
         });
 
