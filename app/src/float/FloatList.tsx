@@ -101,6 +101,9 @@ function AccountRow({
 export default function FloatList() {
   const { config, statuses, error } = useQuotas();
   const rootRef = useRef<HTMLDivElement>(null);
+  // 上次设置的窗口高度：轮询每 15s 重跑本 effect，高度不变时跳过 setSize
+  // （置顶窗口重复 SetWindowPos 会让 Windows 反复重估光标 → 鼠标指针闪动）
+  const lastHeightRef = useRef<number | null>(null);
 
   // 高度随内容自适应（宽度固定）：由供应商数量决定，仅以屏幕高度为物理上限
   useEffect(() => {
@@ -120,6 +123,8 @@ export default function FloatList() {
         // 取不到显示器信息就不限制
       }
       const h = Math.max(MIN_HEIGHT, Math.min(contentH, screenLimit));
+      if (lastHeightRef.current === h) return;
+      lastHeightRef.current = h;
       await getCurrentWindow().setSize(new LogicalSize(WIDTH, h));
     })();
     // 首次运行放到当前显示器右下角（要在尺寸确定后再算位置）
