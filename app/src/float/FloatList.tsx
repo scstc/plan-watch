@@ -6,8 +6,6 @@ import { accountsOf, useQuotas } from "../shared/useQuotas";
 import type { Account, AccountStatus, QuotaTier } from "../shared/types";
 import { ERROR_KIND_LABEL, fmtCountdown, fmtPercent, fmtReset, barStateClass } from "../shared/format";
 
-/** 首次放置标记：之后的位置交给 window-state 插件持久化 */
-const PLACED_KEY = "pw-float-placed";
 /** 点击 vs 拖动的位移阈值（px） */
 const DRAG_THRESHOLD = 4;
 /** 窗口宽度（logical px，固定）；高度完全由供应商数量决定 */
@@ -105,7 +103,8 @@ export default function FloatList() {
   // （置顶窗口重复 SetWindowPos 会让 Windows 反复重估光标 → 鼠标指针闪动）
   const lastHeightRef = useRef<number | null>(null);
 
-  // 高度随内容自适应（宽度固定）：由供应商数量决定，仅以屏幕高度为物理上限
+  // 高度随内容自适应（宽度固定）：由供应商数量决定，仅以屏幕高度为物理上限。
+  // 位置由后端负责（启动/唤出时贴合任务栏），此处不管。
   useEffect(() => {
     const el = rootRef.current;
     if (!el) return;
@@ -125,22 +124,10 @@ export default function FloatList() {
       const h = Math.max(MIN_HEIGHT, Math.min(contentH, screenLimit));
       if (lastHeightRef.current === h) return;
       lastHeightRef.current = h;
+      // 只改高度；位置贴合由后端在 Resized 事件里重算（时序更稳，
+      // 前端 setSize 后立即查 outerSize 拿到的是未稳定的中间值）
       await getCurrentWindow().setSize(new LogicalSize(WIDTH, h));
     })();
-    // 首次运行放到当前显示器右下角（要在尺寸确定后再算位置）
-    if (!localStorage.getItem(PLACED_KEY)) {
-      (async () => {
-        const win = getCurrentWindow();
-        const mon = await currentMonitor();
-        if (!mon) return;
-        const size = await win.outerSize();
-        const margin = Math.round(24 * mon.scaleFactor);
-        const x = mon.position.x + mon.size.width - size.width - margin;
-        const y = mon.position.y + mon.size.height - size.height - margin;
-        await win.setPosition(new PhysicalPosition(x, y));
-        localStorage.setItem(PLACED_KEY, "1");
-      })();
-    }
   }, [config, statuses]);
 
   // 标题栏拖动：位移超阈值进入系统拖动，否则视为点击（无动作）

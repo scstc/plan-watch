@@ -18,7 +18,7 @@ use state::AppState;
 /// 在 setup（manage 之后）创建全部窗口：
 /// - main：设置页（隐藏，托盘右键打开）
 /// - float：浮动额度列表（常驻显示、置顶、可拖动；托盘左键切换显隐，
-///   位置由 window-state 插件记忆，高度随账号数自适应）
+///   启动/唤出时贴合任务栏放置，高度随账号数自适应）
 fn create_windows(app: &mut tauri::App) -> tauri::Result<()> {
     use tauri::{WebviewUrl, WebviewWindowBuilder};
 
@@ -52,13 +52,8 @@ pub fn run() {
             tray::show_settings(app);
         }))
         .plugin(tauri_plugin_notification::init())
-        // 记住窗口位置（浮动列表拖到哪，重启还在哪）；只记位置不记尺寸，
-        // 尺寸由前端按账号数量自适应
-        .plugin(
-            tauri_plugin_window_state::Builder::default()
-                .with_state_flags(tauri_plugin_window_state::StateFlags::POSITION)
-                .build(),
-        )
+        // 悬浮窗位置不记忆：换屏/改分辨率后恢复的旧坐标可能在屏幕外
+        // （window-state 插件超出可视区时不回拉），每次启动/唤出贴合任务栏
         .setup(|app| {
             // macOS：菜单栏常驻形态（不占 Dock / Cmd+Tab）；Windows 不受影响。
             // 注意此 API 在 macOS 返回 ()，不要加 `?`
@@ -75,6 +70,8 @@ pub fn run() {
             create_windows(app)?;
 
             tray::create(app.handle())?;
+            // 托盘图标就绪后把悬浮窗贴合任务栏放置（图标 rect 要托盘先建好）
+            tray::place_float(app.handle());
             scheduler::spawn(app.handle().clone());
 
             // 首次运行（还没有账号）直接弹设置窗口，引导配置
@@ -91,6 +88,11 @@ pub fn run() {
                 {
                     api.prevent_close();
                     let _ = window.hide();
+                }
+                // 悬浮窗高度自适应（前端按账号数 setSize）后重新贴合任务栏；
+                // 此时尺寸已稳定，避免前端 setSize 后立即查询的中间值偏差
+                WindowEvent::Resized(_) if window.label() == "float" => {
+                    tray::place_float(window.app_handle());
                 }
                 _ => {}
             }

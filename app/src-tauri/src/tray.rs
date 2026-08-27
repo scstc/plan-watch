@@ -13,7 +13,7 @@ use std::collections::HashMap;
 
 use tauri::menu::{Menu, MenuEvent, MenuItem, PredefinedMenuItem};
 use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
-use tauri::{AppHandle, Manager};
+use tauri::{AppHandle, Manager, PhysicalPosition};
 use tauri::image::Image;
 
 use crate::config::AppConfig;
@@ -57,11 +57,66 @@ fn toggle_float(app: &AppHandle) {
     if win.is_visible().unwrap_or(false) {
         let _ = win.hide();
     } else {
+        // 先贴合再显示，避免先闪在旧位置
+        place_float(app);
         let _ = win.show();
         let _ = win.set_focus();
         // 隐藏期间创建的 webview 重新显示可能不重绘，踢一脚
         nudge_window(win);
     }
+}
+
+/// 把浮动列表贴着任务栏放置：以托盘图标为锚——图标在屏幕下半（Windows 底部
+/// 任务栏）时窗口底边贴图标顶（≈任务栏上沿），水平居中于图标；图标在屏幕
+/// 上半（macOS 菜单栏）时顶边贴图标底向下弹。取不到图标位置（Linux 等）则
+/// 贴主屏右下角兜底。位置不持久化，每次启动 / 唤出都重新贴合（记忆的旧坐标
+/// 在换屏 / 改分辨率后可能在屏幕外）。
+pub fn place_float(app: &AppHandle) {
+    let Some(win) = app.get_webview_window("float") else {
+        return;
+    };
+    // 托盘图标在主屏任务栏 / 菜单栏，用主屏做 clamp 参照
+    let Some(m) = win
+        .primary_monitor()
+        .ok()
+        .flatten()
+        .or_else(|| win.current_monitor().ok().flatten())
+    else {
+        return;
+    };
+    let (mx, my, mw, mh, scale) = {
+        let p = m.position();
+        let s = m.size();
+        (p.x, p.y, s.width as i32, s.height as i32, m.scale_factor())
+    };
+    let (w, h) = match win.outer_size() {
+        Ok(s) => (s.width as i32, s.height as i32),
+        Err(_) => return,
+    };
+
+    let gap = 8;
+    let anchor = app
+        .tray_by_id(TRAY_ID)
+        .and_then(|t| t.rect().ok().flatten())
+        .map(|r| {
+            let p = r.position.to_physical::<i32>(scale);
+            let s = r.size.to_physical::<u32>(scale);
+            (p.x, p.y, s.width as i32, s.height as i32)
+        });
+
+    let (x, y) = match anchor {
+        // 图标在屏幕下半：向上弹，底边贴图标顶
+        Some((tx, ty, tw, th)) if ty + th / 2 > my + mh / 2 => (tx + tw / 2 - w / 2, ty - h - gap),
+        // 图标在屏幕上半：向下弹，顶边贴图标底
+        Some((tx, ty, tw, th)) => (tx + tw / 2 - w / 2, ty + th + gap),
+        // 取不到图标位置：贴主屏右下角兜底
+        None => (mx + mw - w - 24, my + mh - h - 24),
+    };
+
+    // 图标贴屏幕边缘时把窗口拉回屏内
+    let x = x.clamp(mx + gap, (mx + mw - w - gap).max(mx + gap));
+    let y = y.clamp(my + gap, (my + mh - h - gap).max(my + gap));
+    let _ = win.set_position(PhysicalPosition::new(x, y));
 }
 
 fn fmt_pct(p: f64) -> i64 {
