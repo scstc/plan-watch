@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react";
 import { currentMonitor, getCurrentWindow } from "@tauri-apps/api/window";
-import { LogicalSize, PhysicalPosition } from "@tauri-apps/api/dpi";
+import { LogicalSize } from "@tauri-apps/api/dpi";
 import * as api from "../shared/api";
 import { accountsOf, useQuotas } from "../shared/useQuotas";
 import type { Account, AccountStatus, QuotaTier } from "../shared/types";
