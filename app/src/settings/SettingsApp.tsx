@@ -15,6 +15,8 @@ export default function SettingsApp() {
   const [editing, setEditing] = useState<Account | "new" | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
+  /** 账号变更被拒绝的就地提示（与 loadError 分开：30s 轮询会刷新后者） */
+  const [actionError, setActionError] = useState<string | null>(null);
 
   useEffect(() => {
     let alive = true;
@@ -24,22 +26,18 @@ export default function SettingsApp() {
       try {
         // 先尝试获取配置
         let cfg: AppConfig;
-        let unpaired = false;
+        let banner: string | null = null;
         try {
           cfg = await api.getConfig();
         } catch (configError) {
           if (!api.isServerMode()) throw configError;
-          if (String(configError).includes("PW_AUTH_REQUIRED")) {
-            // 设备未配对：保留后端配置，用本地配置兜底渲染设置页（配对入口在通用设置）
-            console.warn("设备未配对，等待配对:", configError);
-            cfg = await api.getConfigLocal();
-            unpaired = true;
-          } else {
-            // 后端不可达等配置错误，自动切换回本地模式
-            console.warn("后端连接失败，切换到本地模式:", configError);
-            api.setServerUrl(""); // 清除错误的配置
-            cfg = await api.getConfigLocal(); // 使用本地命令
-          }
+          // 服务端模式失败（未配对 / 后端瞬断）：一律保留后端地址，本地配置仅作显示兜底。
+          // 地址保留时下方 30s 轮询会在配对/网络恢复后自愈。
+          // 不能在这里清地址（旧版 setServerUrl("") 会让后端一次瞬断就"配置全部消失"）
+          cfg = await api.getConfigLocal();
+          banner = configError instanceof api.PwAuthError
+            ? "设备未配对：请在下方「通用设置 → 设备配对」输入服务端启动日志中的配对码"
+            : `后端连接失败，暂以本地数据兜底（后端地址已保留，恢复后自动重连）：${String(configError)}`;
         }
 
         if (!alive) return;
@@ -55,7 +53,7 @@ export default function SettingsApp() {
 
         if (alive) {
           setConfig(cfg);
-          setLoadError(unpaired ? "设备未配对：请在下方「通用设置 → 设备配对」输入服务端启动日志中的配对码" : null);
+          setLoadError(banner);
         }
       } catch (e) {
         if (alive) setLoadError(String(e));
@@ -80,17 +78,38 @@ export default function SettingsApp() {
     };
   }, []);
 
-  const persist = useCallback(async (next: AppConfig) => {
+  const persist = useCallback(async (next: AppConfig): Promise<boolean> => {
     setConfig(next); // 乐观更新，失败则回滚
     try {
       const saved = await api.saveConfig(next);
       // 服务端模式返回服务端规范化后的配置（钳制/去重后的值）
       if (saved) setConfig(saved);
+      return true;
     } catch (e) {
       setLoadError(`保存失败：${String(e)}`);
-      setConfig(await api.getConfig());
+      // 回滚拉取也可能失败（如后端刚断开），退回本地配置避免二次抛错
+      setConfig(await api.getConfig().catch(() => api.getConfigLocal()));
+      return false;
     }
   }, []);
+
+  /**
+   * 服务端模式下账号变更必须基于最新服务端配置：兜底渲染的 0 账号基线一旦
+   * PUT 会整体覆盖服务端（静默丢掉其余账号）。取不到最新配置就拒绝本次变更。
+   */
+  const freshBase = useCallback(async (): Promise<AppConfig | null> => {
+    if (!api.isServerMode()) return config;
+    try {
+      const base = await api.getConfig();
+      setActionError(null);
+      return base;
+    } catch (e) {
+      setActionError(e instanceof api.PwAuthError
+        ? "设备未配对，账号变更未保存（请先在下方「通用设置 → 设备配对」完成配对）"
+        : `后端不可达，账号变更未保存（${String(e)}）`);
+      return null;
+    }
+  }, [config]);
 
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -107,32 +126,38 @@ export default function SettingsApp() {
   const saveAccount = useCallback(
     async (account: Account) => {
       if (!config) return;
-      const others = config.accounts.filter((a) => a.id !== account.id);
-      await persist({ ...config, accounts: [...others, account] });
+      const base = await freshBase();
+      if (!base) return;
+      const others = base.accounts.filter((a) => a.id !== account.id);
+      await persist({ ...base, accounts: [...others, account] });
       setEditing(null);
     },
-    [config, persist],
+    [config, freshBase, persist],
   );
 
   const deleteAccount = useCallback(
     async (id: string) => {
       if (!config) return;
-      await persist({ ...config, accounts: config.accounts.filter((a) => a.id !== id) });
+      const base = await freshBase();
+      if (!base) return;
+      await persist({ ...base, accounts: base.accounts.filter((a) => a.id !== id) });
       // 正在编辑这个账号的表单持有打开时的快照，不同步关闭会在保存时"复活"它
       setEditing((e) => (e !== null && e !== "new" && e.id === id ? null : e));
     },
-    [config, persist],
+    [config, freshBase, persist],
   );
 
   const toggleAccount = useCallback(
     async (id: string, enabled: boolean) => {
       if (!config) return;
+      const base = await freshBase();
+      if (!base) return;
       await persist({
-        ...config,
-        accounts: config.accounts.map((a) => (a.id === id ? { ...a, enabled } : a)),
+        ...base,
+        accounts: base.accounts.map((a) => (a.id === id ? { ...a, enabled } : a)),
       });
     },
-    [config, persist],
+    [config, freshBase, persist],
   );
 
   if (loadError && !config) {
@@ -207,6 +232,7 @@ export default function SettingsApp() {
             + 添加账号
           </button>
         </div>
+        {actionError && <p className="error-banner">{actionError}</p>}
 
         {editing !== null && (
           <AccountForm
@@ -235,7 +261,7 @@ export default function SettingsApp() {
       </section>
 
       <footer className="muted small">
-        关闭窗口即隐藏到托盘继续监控；额度变化看浮动列表。plan-watch v26.8.1
+        关闭窗口即隐藏到托盘继续监控；额度变化看浮动列表。plan-watch v26.8.4
         <span style={{ marginLeft: 12 }}>
           <button
             className="danger"

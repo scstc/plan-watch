@@ -11,8 +11,8 @@ const PAIR_LEN = 8;
 
 interface Props {
   config: AppConfig;
-  /** 保存配置（父层负责乐观更新/回滚/错误展示） */
-  persist: (next: AppConfig) => Promise<void>;
+  /** 保存配置（父层负责乐观更新/回滚/错误展示）；返回是否保存成功 */
+  persist: (next: AppConfig) => Promise<boolean>;
   /** 保存完成后的回调（数据源可能切换，父层需要重载） */
   onSaved: () => void;
 }
@@ -116,12 +116,19 @@ export function GeneralSettingsCard({ config, persist, onSaved }: Props) {
   const [pairCode, setPairCode] = useState("");
   const [pairing, setPairing] = useState(false);
   const [pairMsg, setPairMsg] = useState<string | null>(null);
+  // 「保存设置」的结果提示（拒绝保存 / 保存失败），与配对消息分开
+  const [saveMsg, setSaveMsg] = useState<string | null>(null);
   const [tokenPresent, setTokenPresent] = useState(api.hasToken());
+  // 用户敲过数字草稿后暂停 config→草稿同步：服务端故障↔恢复的 30s 轮询翻转
+  // 不应冲掉未保存的编辑（保存成功后复位，服务端规范化值得以同步回来）
+  const touched = useRef(false);
 
   const pair = async () => {
     setPairing(true);
     setPairMsg(null);
     try {
+      // 配对走输入框当前地址（未 blur 直接点配对也生效）
+      api.setServerUrl(serverUrl);
       await api.pairServer(pairCode);
       setPairMsg("配对成功，正在重新加载…");
       setTimeout(() => window.location.reload(), 600);
@@ -142,9 +149,16 @@ export function GeneralSettingsCard({ config, persist, onSaved }: Props) {
 
   // config 变化时同步草稿（初始加载 / 服务端返回规范化值 / 回滚）
   useEffect(() => {
+    if (touched.current) return;
     setIntervalMin(Math.max(1, Math.round(config.refreshIntervalSecs / 60)));
     setThreshold(config.lowQuotaThreshold);
   }, [config.refreshIntervalSecs, config.lowQuotaThreshold]);
+
+  // config 每轮轮询都是新对象：借其对齐 localStorage 真实配对状态。
+  // 401 吊销清 token 后 ≤30s 内翻转为"未配对"，配对入口（banner 指引的）才看得见
+  useEffect(() => {
+    if (serverUrl) setTokenPresent(api.hasToken());
+  }, [config, serverUrl]);
 
   const dirty =
     Math.round(intervalMin * 60) !== config.refreshIntervalSecs ||
@@ -152,6 +166,7 @@ export function GeneralSettingsCard({ config, persist, onSaved }: Props) {
     serverUrl.trim() !== api.getServerUrl();
 
   const save = async () => {
+    setSaveMsg(null);
     // 后端接口地址是本机偏好（localStorage），不进 AppConfig
     api.setServerUrl(serverUrl);
     // 数据源可能切换：先按新模式取最新配置做基底，
@@ -159,14 +174,26 @@ export function GeneralSettingsCard({ config, persist, onSaved }: Props) {
     let base = config;
     try {
       base = await api.getConfig();
-    } catch {
-      // 地址不可达等：继续用当前 config 保存，错误经 persist 的回滚路径浮出
+    } catch (e) {
+      // 服务端模式取不到最新配置就拒绝保存：兜底渲染的 0 账号基线一旦
+      // PUT 会整体覆盖服务端账号（与 SettingsApp 账号变更的 freshBase 同语义）
+      if (api.isServerMode()) {
+        setSaveMsg(
+          e instanceof api.PwAuthError
+            ? "设备未配对，设置未保存（请先完成下方「设备配对」）"
+            : `后端不可达，设置未保存（${String(e)}）`,
+        );
+        return;
+      }
+      // 本地模式 get_config 失败属理论路径，维持旧行为继续保存
     }
-    await persist({
+    const ok = await persist({
       ...base,
       refreshIntervalSecs: Math.max(60, Math.min(86_400, Math.round(intervalMin * 60))),
       lowQuotaThreshold: Math.max(10, Math.min(99, Math.round(threshold))),
     });
+    if (!ok) return; // 保存失败：banner 已提示；不触发刷新（其失败文案会盖掉"保存失败"）
+    touched.current = false;
     setTokenPresent(api.hasToken());
     onSaved();
   };
@@ -184,7 +211,10 @@ export function GeneralSettingsCard({ config, persist, onSaved }: Props) {
             min={1}
             max={1440}
             value={intervalMin}
-            onChange={(e) => setIntervalMin(clamp(Number(e.target.value), 1, 1440))}
+            onChange={(e) => {
+              touched.current = true;
+              setIntervalMin(clamp(Number(e.target.value), 1, 1440));
+            }}
           />
         </label>
         <label>
@@ -194,7 +224,10 @@ export function GeneralSettingsCard({ config, persist, onSaved }: Props) {
             min={10}
             max={99}
             value={threshold}
-            onChange={(e) => setThreshold(clamp(Number(e.target.value), 10, 99))}
+            onChange={(e) => {
+              touched.current = true;
+              setThreshold(clamp(Number(e.target.value), 10, 99));
+            }}
           />
         </label>
         <div className="form-actions inline">
@@ -202,15 +235,22 @@ export function GeneralSettingsCard({ config, persist, onSaved }: Props) {
             保存设置
           </button>
         </div>
+        {saveMsg && (
+          <p className={`span-3 ${saveMsg.includes("成功") ? "ok-banner" : "error-banner"}`}>{saveMsg}</p>
+        )}
         <label className="span-3">
           后端接口地址（填了走服务端取数，留空使用本地查询）
           <input
             value={serverUrl}
-            onChange={(e) => {
-              const next = e.target.value;
-              setServerUrlDraft(next);
-              // 即时持久化：避免「填完地址还没点保存就点配对」导致请求发到旧地址
-              api.setServerUrl(next);
+            onChange={(e) => setServerUrlDraft(e.target.value)}
+            onKeyDown={(e) => {
+              // 回车即落盘（与 onBlur 共用同一提交路径）
+              if (e.key === "Enter") e.currentTarget.blur();
+            }}
+            onBlur={() => {
+              // 落盘放在 blur 而不是每次键击：逐键持久化会把 "http://19…" 等
+              // 中间态写进 localStorage（该地址无 token，会触发持续的未配对失败）
+              api.setServerUrl(serverUrl);
               setTokenPresent(api.hasToken());
             }}
             placeholder="http://192.168.1.100:8787"

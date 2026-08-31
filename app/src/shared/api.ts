@@ -49,6 +49,21 @@ function clearToken(): void {
 
 const inTauri = typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
 
+/** 未配对提示文案（token 缺失或被服务端吊销时共用） */
+const UNPAIRED_MSG = "设备未配对：请到 设置→通用设置「设备配对」输入服务端启动日志中的配对码";
+
+/**
+ * 需要重新配对的错误（token 缺失 / 401 被吊销）。
+ * 用类型判定而不是消息文本匹配：调用方据此引导用户去配对，
+ * 而不是当作后端故障处理（更不允许据此清除后端地址）。
+ */
+export class PwAuthError extends Error {
+  constructor(message: string = UNPAIRED_MSG) {
+    super(message);
+    this.name = "PwAuthError";
+  }
+}
+
 /**
  * 走 Rust 侧的 HTTP 代理（Tauri invoke "http_request"）。
  * 绕开 WebView2 在 production 模式下对明文跨网段 fetch 的拦截。
@@ -94,7 +109,7 @@ async function http<T>(path: string, init?: RequestInit): Promise<T> {
   const serverUrl = getServerUrl();
   const token = getToken();
   if (!token) {
-    throw new Error("设备未配对：请到 设置→通用设置「设备配对」输入服务端启动日志中的配对码");
+    throw new PwAuthError();
   }
   let resp: { status: number; body: string };
   try {
@@ -114,7 +129,7 @@ async function http<T>(path: string, init?: RequestInit): Promise<T> {
   }
   if (resp.status === 401 && resp.body.includes("PW_AUTH_REQUIRED")) {
     clearToken();
-    throw new Error("设备未配对：请到 设置→通用设置「设备配对」输入服务端启动日志中的配对码");
+    throw new PwAuthError();
   }
   if (resp.status < 200 || resp.status >= 300) {
     throw new Error(`HTTP ${resp.status}${resp.body ? `: ${resp.body.slice(0, 200)}` : ""}`);
