@@ -3,9 +3,11 @@
 <plist version="1.0">
 <dict>
     <!--
-      出站 TCP 客户端权限，pair / config / statuses 等所有走 reqwest::Client
-      的请求都依赖它。Info.plist 里同时声明 NSLocalNetworkUsageDescription
-      才会在首次访问 RFC1918 地址时弹出"允许本地网络"对话框。
+      注意：当前产物未启用 App Sandbox，此 entitlement 不产生实际效果——
+      非沙盒应用本就允许出站 TCP。服务端模式访问内网（192.168.*）真正
+      依赖的是 Info.plist 的 NSLocalNetworkUsageDescription + 用户在
+      「系统设置 → 隐私与安全性 → 本地网络」里授权。
+      保留此文件仅为未来启用沙箱时的备忘。
     -->
     <key>com.apple.security.network.client</key>
     <true/>

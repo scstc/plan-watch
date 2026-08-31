@@ -3,12 +3,17 @@
 <plist version="1.0">
 <dict>
     <!--
-      macOS 14+ Local Network Privacy：未声明此 key 时，系统会静默拒掉对
-      192.168.* / 10.* / 172.16-31.* 等 RFC1918 网段的出站请求，
-      reqwest::send() 直接返回 "send: error sending request for url"。
-      描述会在首次访问本地网络时弹给用户看。
+      macOS 15 (Sequoia) 起对 192.168.* / 10.* / 172.16-31.* 等 RFC1918 网段
+      的出站连接强制「本地网络」授权：未声明此 key 时系统直接静默拒绝，
+      reqwest::send() 返回 "send: error sending request for url"。
+      描述会在首次访问本地网络时弹给用户看（需产物有稳定签名身份，
+      ad-hoc 签名即可，见 tauri.conf.json 的 signingIdentity）。
     -->
     <key>NSLocalNetworkUsageDescription</key>
     <string>plan-watch 需要访问本地网络以连接您配置的后端服务（同步 / 查询账号余额）。</string>
+    <!-- 菜单栏常驻形态：让 LaunchServices 从进程启动起按 UIElement 处理，
+         消除启动瞬间 Dock 图标闪现与焦点抢占（与 lib.rs 的 Accessory 策略互为加固） -->
+    <key>LSUIElement</key>
+    <true/>
 </dict>
 </plist>

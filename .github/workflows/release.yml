@@ -1,6 +1,6 @@
 # 打 tag（v*）触发：桌面安装包（Windows + macOS Apple Silicon）+ 服务端 jar，全部挂到 GitHub Draft Release
 # macOS Intel 已下架（macos-13 即将被 GitHub 移除；个人项目少有 Intel 用户，节省 7 分钟/构建）
-# 产物未签名/未公证（个人项目够用；要分发给别人再补签名与 updater）
+# 产物未公证（macOS 为 ad-hoc 签名，见 tauri.conf.json 的 signingIdentity；要分发给别人再补 Developer ID 签名与 updater）
 # 本地触发：git tag v0.4.0 && git push origin v0.4.0
 name: Release
 
@@ -47,7 +47,7 @@ jobs:
           releaseDraft: true
           prerelease: false
           releaseBody: |
-            桌面安装包（未签名，首次打开见 README 的平台说明）与服务端 jar。
+            桌面安装包（未公证：macOS 为 ad-hoc 签名，首次打开见 README 的平台说明）与服务端 jar。
             悬浮列表 + 托盘监控 AI 编程套餐余额，详见 README。
 
   server:

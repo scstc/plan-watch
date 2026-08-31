@@ -107,6 +107,17 @@ pub fn run() {
             commands::quit_app,
             commands::http_request,
         ])
-        .run(tauri::generate_context!())
-        .expect("error while running plan-watch");
+        .build(tauri::generate_context!())
+        .expect("error while building plan-watch")
+        .run(|app, event| {
+            // macOS 二次打开（Finder / Launchpad / Spotlight）走 reopen
+            // Apple Event，不产生第二进程，single-instance 插件回调在该路径
+            // 不触发，须自行唤出设置窗口。Reopen 是 macOS 独有变体。
+            #[cfg(target_os = "macos")]
+            if let tauri::RunEvent::Reopen { .. } = event {
+                tray::show_settings(app);
+            }
+            #[cfg(not(target_os = "macos"))]
+            let _ = (app, event);
+        });
 }

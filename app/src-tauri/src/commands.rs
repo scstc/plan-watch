@@ -117,7 +117,18 @@ pub async fn http_request(
     if let Some(b) = body {
         req = req.body(b);
     }
-    let resp = req.send().await.map_err(|e| format!("send: {e}"))?;
+    // reqwest 顶层 Display 只有 "error sending request"，真实原因（macOS
+    // 本地网络权限拒绝 / 连接被拒 / 超时）在 source() 链里，不透出就无法
+    // 区分「权限问题」和「地址问题」
+    let resp = req.send().await.map_err(|e| {
+        let mut msg = format!("send: {e}");
+        let mut cause = std::error::Error::source(&e);
+        while let Some(c) = cause {
+            msg.push_str(&format!(" <- {c}"));
+            cause = c.source();
+        }
+        msg
+    })?;
     let status = resp.status().as_u16() as i32;
     let text = resp.text().await.map_err(|e| format!("read body: {e}"))?;
     Ok(HttpResponse { status, body: text })

@@ -168,7 +168,9 @@ fn check_low_quota(
             .find(|t| t.window == window)
             .map(|t| t.used_percent)
             .unwrap_or(0.0);
-        let _ = app
+        // 不能静默吞错：macOS 未公证产物上通知链路可能整体失效（如
+        // LaunchServices 未注册 bundle id），无日志将完全无从排查
+        if let Err(e) = app
             .notification()
             .builder()
             .title("plan-watch 低额度提醒")
@@ -179,6 +181,9 @@ fn check_low_quota(
                 pct.round() as i64,
                 threshold.round() as i64
             ))
-            .show();
+            .show()
+        {
+            eprintln!("[plan-watch] 低额度通知发送失败: {e}");
+        }
     }
 }

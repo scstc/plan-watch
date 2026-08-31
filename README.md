@@ -56,8 +56,12 @@ flowchart TB
 | `plan-watch_x.y.z_x64-setup.exe` | Windows x64（推荐，NSIS 安装包） |
 | `plan-watch_x.y.z_aarch64.dmg` | macOS（Apple Silicon） |
 
-> 安装包未签名：Windows SmartScreen 首次运行选「仍要运行」；
-> macOS 首次打开需在「系统设置 → 隐私与安全性」里允许。
+> 安装包未公证：Windows SmartScreen 首次运行选「仍要运行」。
+> macOS（仅 Apple Silicon，不支持 Intel）：双击若提示「已损坏，无法打开」，
+> 属签名缺失误报，终端执行 `xattr -cr /Applications/plan-watch.app` 即可；
+> 新版已 ad-hoc 签名，也可在「系统设置 → 隐私与安全性」点「仍要打开」。
+> 服务端模式访问内网后端（192.168.*）还需在「系统设置 → 隐私与安全性 →
+> 本地网络」里允许 plan-watch。
 
 ### 界面一览
 
@@ -318,7 +322,7 @@ mvn -f server/pom.xml spring-boot:run
 
 ## 发布
 
-推送 `v*` 标签触发 GitHub Actions：三平台安装包（Windows x64 / macOS ARM / macOS Intel）
+推送 `v*` 标签触发 GitHub Actions：两平台安装包（Windows x64 / macOS Apple Silicon）
 + 服务端 jar 自动构建并挂到**草稿** Release，检查后在 Releases 页点 Publish（或
 `gh release edit vX.Y.Z --draft=false --latest`）对外发布。
 
