@@ -261,7 +261,7 @@ export default function SettingsApp() {
       </section>
 
       <footer className="muted small">
-        关闭窗口即隐藏到托盘继续监控；额度变化看浮动列表。plan-watch v26.8.4
+        关闭窗口即隐藏到托盘继续监控；额度变化看浮动列表。plan-watch v26.8.5
         <span style={{ marginLeft: 12 }}>
           <button
             className="danger"
